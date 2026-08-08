@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Control Médico Cloud</title>
     
-    <!-- Supabase SDK y Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -16,70 +15,44 @@
             --text-main: #1f2937; --text-muted: #6b7280;
             --border: #e5e7eb;
             --danger: #ef4444; --warning: #f59e0b; --success: #10b981;
-            --radius: 12px; /* Bordes más suaves para móvil */
+            --radius: 12px;
         }
 
-        /* Reset y Mobile Optimization */
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
-        body { 
-            background-color: var(--bg-body); 
-            color: var(--text-main); 
-            /* Previene el zoom en inputs en iOS */
-            font-size: 16px; 
-            padding-bottom: 80px; 
-        }
+        body { background-color: var(--bg-body); color: var(--text-main); font-size: 16px; padding-bottom: 80px; }
 
-        /* Vistas */
         .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s; }
         .view.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .card { background: var(--bg-card); border-radius: var(--radius); padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        
         h1, h2, h3 { margin-bottom: 15px; color: var(--text-main); }
         h1 { font-size: 1.5rem; text-align: center; color: var(--primary); }
 
-        /* Formularios optimizados para Touch */
         .form-group { margin-bottom: 15px; }
         label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); }
-        
-        input, textarea, select { 
-            width: 100%; 
-            padding: 12px 15px; /* Áreas táctiles más grandes */
-            border: 1px solid var(--border); 
-            border-radius: 8px; 
-            font-size: 16px; /* Evita zoom automático en móviles */
-            background: #fafafa;
-        }
+        input, textarea { width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: #fafafa; }
         input:focus { outline: none; border-color: var(--primary); background: #fff; }
         
         .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         
-        button { 
-            background: var(--primary); color: white; border: none; 
-            padding: 14px 15px; /* Min-height 44px para touch */
-            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px;
-            width: 100%; transition: background 0.2s; 
-            display: flex; justify-content: center; align-items: center; gap: 10px;
-        }
+        button { background: var(--primary); color: white; border: none; padding: 14px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
         button:active { transform: scale(0.98); }
-        button:disabled { opacity: 0.7; cursor: not-allowed; }
         button.secondary { background: #f3f4f6; color: var(--text-main); border: 1px solid var(--border); }
+        
+        .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; background: #e5e7eb; color: var(--text-main); }
 
-        /* Loader */
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Lista de Registros */
         .record-item { padding: 15px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; background: #fff; }
-        .record-header { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .record-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
         .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; display: inline-block; }
         .badge.normal { background: var(--success); }
         .badge.warning { background: var(--warning); }
         .badge.danger { background: var(--danger); }
 
-        /* Navegación inferior (Mobile App Feel) */
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         .nav-item { background: none; color: var(--text-muted); border: none; padding: 10px; font-size: 0.85rem; flex-direction: column; width: auto; border-radius: 0; }
         .nav-item.active { color: var(--primary); font-weight: bold; }
@@ -90,6 +63,11 @@
         #alert-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); width: 90%; z-index: 1000; }
         .alert { background: var(--danger); color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .alert.success { background: var(--success); }
+
+        /* Estilos del Modal de Edición */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; padding: 15px; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: white; padding: 20px; border-radius: var(--radius); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -101,101 +79,89 @@
     <div class="card">
         <h1>SaludCloud</h1>
         <p style="text-align: center; color: var(--text-muted); margin-bottom: 20px;">Acceso seguro a tu expediente</p>
-        
         <form id="login-form">
-            <div class="form-group">
-                <label>Correo Electrónico</label>
-                <input type="email" id="email" required placeholder="tu@correo.com">
-            </div>
-            <div class="form-group">
-                <label>Contraseña</label>
-                <input type="password" id="password" required placeholder="••••••••">
-            </div>
-            <button type="submit" id="btn-login">
-                <span class="loader" id="login-loader"></span>
-                <span>Ingresar</span>
-            </button>
+            <div class="form-group"><label>Correo</label><input type="email" id="email" required></div>
+            <div class="form-group"><label>Contraseña</label><input type="password" id="password" required></div>
+            <button type="submit" id="btn-login"><span class="loader" id="login-loader"></span><span>Ingresar</span></button>
         </form>
     </div>
 </div>
 
-<!-- VISTA 2: APLICACIÓN PRINCIPAL -->
+<!-- VISTA 2: APLICACIÓN -->
 <div id="view-app" class="view">
     
     <!-- Pestaña: Registrar -->
     <div id="tab-register" class="tab-content">
         <div class="card">
             <h2>Nuevo Registro</h2>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Puedes registrar solo la presión, solo la glucosa, o ambos.</p>
             <form id="health-form">
                 <div class="row-2">
-                    <div class="form-group">
-                        <label>Fecha</label>
-                        <input type="date" id="date" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Hora</label>
-                        <input type="time" id="time" required>
-                    </div>
+                    <div class="form-group"><label>Fecha</label><input type="date" id="date" required></div>
+                    <div class="form-group"><label>Hora</label><input type="time" id="time" required></div>
                 </div>
-
                 <div class="form-group">
-                    <label>Presión Arterial (mmHg)</label>
+                    <label>Presión Arterial (mmHg) - Opcional</label>
                     <div class="row-2">
-                        <input type="number" id="sys" placeholder="Sistólica (Ej. 120)" min="0" required pattern="\d*">
-                        <input type="number" id="dia" placeholder="Diastólica (Ej. 80)" min="0" required pattern="\d*">
+                        <input type="number" id="sys" placeholder="Sistólica" min="0" pattern="\d*">
+                        <input type="number" id="dia" placeholder="Diastólica" min="0" pattern="\d*">
                     </div>
                 </div>
-
-                <div class="form-group">
-                    <label>Glucosa (mg/dL)</label>
-                    <input type="number" id="glu" placeholder="Ej. 95" min="0" required pattern="\d*">
-                </div>
-
-                <div class="form-group">
-                    <label>Notas</label>
-                    <textarea id="notes" placeholder="Síntomas, medicación..."></textarea>
-                </div>
-
-                <button type="submit" id="btn-save">
-                    <span class="loader" id="save-loader"></span>
-                    <span>Guardar en la Nube</span>
-                </button>
+                <div class="form-group"><label>Glucosa (mg/dL) - Opcional</label><input type="number" id="glu" placeholder="Ej. 95" min="0" pattern="\d*"></div>
+                <div class="form-group"><label>Notas</label><textarea id="notes" placeholder="Síntomas, medicación..."></textarea></div>
+                <button type="submit" id="btn-save"><span class="loader" id="save-loader"></span><span>Guardar en la Nube</span></button>
             </form>
         </div>
     </div>
 
-    <!-- Pestaña: Historial y Gráficos -->
+    <!-- Pestaña: Historial -->
     <div id="tab-history" class="tab-content" style="display: none;">
         <div class="card">
-            <h2>Tendencias (Últimos 30 días)</h2>
-            <div class="chart-container">
-                <canvas id="trendChart"></canvas>
-            </div>
+            <h2>Tendencias</h2>
+            <div class="chart-container"><canvas id="trendChart"></canvas></div>
         </div>
-        
         <div class="card">
-            <h2>Últimos Registros</h2>
-            <div id="records-list">
-                <p style="text-align:center; color:gray;">Cargando datos...</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0;">Historial</h2>
+                <input type="date" id="filter-date" style="width: auto; padding: 6px 10px;" onchange="applyDateFilter()">
             </div>
+            <div id="records-list"><p style="text-align:center; color:gray;">Cargando datos...</p></div>
         </div>
     </div>
 
-    <!-- Navegación Inferior Móvil -->
     <nav class="bottom-nav">
-        <button class="nav-item active" onclick="switchTab('register')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/></svg>
-            Registrar
-        </button>
-        <button class="nav-item" onclick="switchTab('history')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17l-5-5-4 4-4-4"/></svg>
-            Historial
-        </button>
-        <button class="nav-item" id="btn-logout" style="color: var(--danger);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            Salir
-        </button>
+        <button class="nav-item active" onclick="switchTab('register')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/></svg>Registrar</button>
+        <button class="nav-item" onclick="switchTab('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17l-5-5-4 4-4-4"/></svg>Historial</button>
+        <button class="nav-item" id="btn-logout" style="color: var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Salir</button>
     </nav>
+</div>
+
+<!-- Modal de Edición -->
+<div id="edit-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2 style="margin-top:0;">Editar Registro</h2>
+        <form id="edit-form">
+            <input type="hidden" id="edit-id">
+            <div class="row-2">
+                <div class="form-group"><label>Fecha</label><input type="date" id="edit-date" required></div>
+                <div class="form-group"><label>Hora</label><input type="time" id="edit-time" required></div>
+            </div>
+            <div class="form-group">
+                <label>Presión Arterial (Opcional)</label>
+                <div class="row-2">
+                    <input type="number" id="edit-sys" placeholder="Sistólica">
+                    <input type="number" id="edit-dia" placeholder="Diastólica">
+                </div>
+            </div>
+            <div class="form-group"><label>Glucosa (Opcional)</label><input type="number" id="edit-glu"></div>
+            <div class="form-group"><label>Notas</label><textarea id="edit-notes"></textarea></div>
+            
+            <div class="row-2" style="margin-top:20px;">
+                <button type="button" class="secondary" onclick="closeEditModal()">Cancelar</button>
+                <button type="submit" id="btn-update"><span class="loader" id="update-loader"></span>Actualizar</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -204,26 +170,36 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnbnpyeG1zZWJhcnBlZWZoaHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxODMxMzgsImV4cCI6MjEwMTc1OTEzOH0.VP29xoYENKAczX1qlcGpPoKAW5KHr8FhiDMZ2r8I0Ic';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // --- 2. LÓGICA MÉDICA ---
+    // Variables Globales
+    let currentUser = null;
+    let chartInstance = null;
+    let allRecords = []; // Almacena el historial para el buscador local
+
+    // --- 2. UTILIDADES MÉDICAS Y DE TIEMPO ---
     const HealthLogic = {
         categorizeBP: (sys, dia) => {
+            if (!sys || !dia) return null;
             if (sys < 120 && dia < 80) return { label: 'Normal', class: 'normal' };
             if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
-            return { label: 'Elevada / Precaución', class: 'warning' };
+            return { label: 'Elevada', class: 'warning' };
         },
         categorizeGlucose: (glu) => {
+            if (!glu) return null;
             if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
             if (glu <= 100) return { label: 'Normal', class: 'normal' };
             if (glu <= 125) return { label: 'Elevada', class: 'warning' };
             return { label: 'Alta', class: 'danger' };
+        },
+        formatAMPM: (timeStr) => {
+            let [hours, minutes] = timeStr.split(':');
+            hours = parseInt(hours);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12; // Convierte '0' a '12'
+            return `${hours}:${minutes} ${ampm}`;
         }
     };
 
-    // --- 3. CONTROLADOR DE INTERFAZ Y NUBE ---
-    let currentUser = null;
-    let chartInstance = null;
-
-    // Utilidades UI
+    // --- 3. UTILIDADES UI ---
     const showAlert = (msg, type = 'danger') => {
         const el = document.createElement('div');
         el.className = `alert ${type}`;
@@ -243,10 +219,8 @@
     const switchTab = (tabName) => {
         document.getElementById('tab-register').style.display = tabName === 'register' ? 'block' : 'none';
         document.getElementById('tab-history').style.display = tabName === 'history' ? 'block' : 'none';
-        
         document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
         event.currentTarget.classList.add('active');
-
         if(tabName === 'history') loadDataFromCloud();
     };
 
@@ -256,22 +230,17 @@
         document.getElementById('time').value = now.toTimeString().slice(0,5); 
     };
 
-    // Autenticación
+    // --- 4. AUTENTICACIÓN ---
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         toggleLoader('btn-login', 'login-loader', true);
-        
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-
-        // Login con Supabase
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+            email: document.getElementById('email').value, 
+            password: document.getElementById('password').value 
+        });
         toggleLoader('btn-login', 'login-loader', false);
-
-        if (error) {
-            showAlert('Error: Credenciales inválidas');
-        } else {
+        if (error) showAlert('Error: Credenciales inválidas');
+        else {
             currentUser = data.user;
             document.getElementById('view-login').classList.remove('active');
             document.getElementById('view-app').classList.add('active');
@@ -281,69 +250,78 @@
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
-        currentUser = null;
-        document.getElementById('view-app').classList.remove('active');
-        document.getElementById('view-login').classList.add('active');
-        document.getElementById('login-form').reset();
+        window.location.reload();
     });
 
-    // Guardar Datos en la Nube
+    // --- 5. LÓGICA DE REGISTRO (CREATE / UPDATE) ---
+    const getFormData = (prefix = '') => {
+        const sys = document.getElementById(`${prefix}sys`).value;
+        const dia = document.getElementById(`${prefix}dia`).value;
+        const glu = document.getElementById(`${prefix}glu`).value;
+        return {
+            date: document.getElementById(`${prefix}date`).value,
+            time: document.getElementById(`${prefix}time`).value,
+            sys_pressure: sys ? parseInt(sys) : null,
+            dia_pressure: dia ? parseInt(dia) : null,
+            glucose: glu ? parseInt(glu) : null,
+            notes: document.getElementById(`${prefix}notes`).value
+        };
+    };
+
+    const validateData = (data) => {
+        if (!data.sys_pressure && !data.dia_pressure && !data.glucose) {
+            showAlert('Debes registrar al menos la presión arterial o la glucosa.', 'warning');
+            return false;
+        }
+        if ((data.sys_pressure && !data.dia_pressure) || (!data.sys_pressure && data.dia_pressure)) {
+            showAlert('Si registras la presión, debes llenar sistólica y diastólica.', 'warning');
+            return false;
+        }
+        return true;
+    };
+
     document.getElementById('health-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const record = getFormData();
+        if (!validateData(record)) return;
+
+        record.patient_id = currentUser.id;
         toggleLoader('btn-save', 'save-loader', true);
-
-        const record = {
-            patient_id: currentUser.id,
-            date: document.getElementById('date').value,
-            time: document.getElementById('time').value,
-            sys_pressure: parseInt(document.getElementById('sys').value),
-            dia_pressure: parseInt(document.getElementById('dia').value),
-            glucose: parseInt(document.getElementById('glu').value),
-            notes: document.getElementById('notes').value
-        };
-
-        const { error } = await supabaseClient.from('health_records').insert([record]);
         
+        const { error } = await supabaseClient.from('health_records').insert([record]);
         toggleLoader('btn-save', 'save-loader', false);
 
-        if (error) {
-            showAlert('Error al sincronizar con la nube');
-            console.error(error);
-        } else {
-            showAlert('Guardado en la nube exitosamente', 'success');
+        if (error) showAlert('Error al guardar en la nube');
+        else {
+            showAlert('Guardado exitosamente', 'success');
             document.getElementById('health-form').reset();
             initTime();
         }
     });
 
-    // Cargar y Visualizar Datos
+    // --- 6. HISTORIAL Y RENDERIZADO ---
     const loadDataFromCloud = async () => {
-        // Traer datos de los últimos 30 días ordenados descendentemente
-        const treintaDiasAtras = new Date();
-        treintaDiasAtras.setDate(treintaDiasAtras.getDate() - 30);
-        
         const { data, error } = await supabaseClient
             .from('health_records')
             .select('*')
-            .gte('date', treintaDiasAtras.toISOString().split('T')[0])
             .order('date', { ascending: false })
-            .order('time', { ascending: false });
+            .order('time', { ascending: false })
+            .limit(100);
 
-        if (error) {
-            showAlert('Error al descargar historial');
-            return;
+        if (error) showAlert('Error al descargar historial');
+        else {
+            allRecords = data;
+            document.getElementById('filter-date').value = ''; // Reset filtro
+            renderHistory(allRecords);
+            renderChart(allRecords);
         }
-
-        renderHistory(data);
-        renderChart(data);
     };
 
     const renderHistory = (records) => {
         const list = document.getElementById('records-list');
         list.innerHTML = '';
-
         if(records.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:gray;">Sin registros recientes.</p>';
+            list.innerHTML = '<p style="text-align:center; color:gray;">No se encontraron registros.</p>';
             return;
         }
 
@@ -351,23 +329,26 @@
             const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
             const gluCat = HealthLogic.categorizeGlucose(r.glucose);
             
-            // Convertir fecha a formato local
-            const dateObj = new Date(`${r.date}T${r.time}`);
-            const dateStr = dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            const timeAMPM = HealthLogic.formatAMPM(r.time);
             
+            // Construir visualización condicional
+            let bpHtml = r.sys_pressure 
+                ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>`
+                : `<span style="color:var(--text-muted)"><em>Presión no registrada</em></span>`;
+                
+            let gluHtml = r.glucose 
+                ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span> <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>`
+                : `<span style="color:var(--text-muted)"><em>Glucosa no registrada</em></span>`;
+
             list.innerHTML += `
                 <div class="record-item">
                     <div class="record-header">
-                        <strong>${dateStr} - ${r.time}</strong>
+                        <strong>${dateStr} - ${timeAMPM}</strong>
+                        <button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button>
                     </div>
-                    <div style="margin-bottom: 8px;">
-                        <span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span>
-                        <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>
-                    </div>
-                    <div>
-                        <span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span>
-                        <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>
-                    </div>
+                    <div style="margin-bottom: 8px;">${bpHtml}</div>
+                    <div>${gluHtml}</div>
                     ${r.notes ? `<div style="font-size:0.85rem; color:gray; margin-top:10px; border-top:1px solid #eee; padding-top:5px;">${r.notes}</div>` : ''}
                 </div>
             `;
@@ -375,9 +356,7 @@
     };
 
     const renderChart = (records) => {
-        // Invertir para que el gráfico vaya de más antiguo a más reciente (izquierda a derecha)
-        const ascRecords = [...records].reverse(); 
-        
+        const ascRecords = [...records].reverse().slice(-30); // Últimos 30 para el gráfico
         const labels = ascRecords.map(r => `${r.date.slice(5).replace('-','/')} ${r.time.slice(0,5)}`);
         
         const ctx = document.getElementById('trendChart').getContext('2d');
@@ -388,20 +367,64 @@
             data: {
                 labels: labels,
                 datasets: [
-                    { label: 'Sistólica', data: ascRecords.map(r => r.sys_pressure), borderColor: '#ef4444', tension: 0.3 },
-                    { label: 'Diastólica', data: ascRecords.map(r => r.dia_pressure), borderColor: '#f59e0b', tension: 0.3 },
-                    { label: 'Glucosa', data: ascRecords.map(r => r.glucose), borderColor: '#2563eb', tension: 0.3 }
+                    // Solo renderiza los puntos donde no es null (Chart.js ignora nulls limpiamente)
+                    { label: 'Sistólica', data: ascRecords.map(r => r.sys_pressure), borderColor: '#ef4444', tension: 0.3, spanGaps: true },
+                    { label: 'Diastólica', data: ascRecords.map(r => r.dia_pressure), borderColor: '#f59e0b', tension: 0.3, spanGaps: true },
+                    { label: 'Glucosa', data: ascRecords.map(r => r.glucose), borderColor: '#2563eb', tension: 0.3, spanGaps: true }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
-                scales: { x: { display: false } } // Ocultar etiquetas X en móvil para ahorrar espacio
+                scales: { x: { display: false } }
             }
         });
     };
 
-    // Verificar sesión activa al cargar
+    // --- 7. FILTRO Y EDICIÓN ---
+    const applyDateFilter = () => {
+        const filterVal = document.getElementById('filter-date').value;
+        if(!filterVal) renderHistory(allRecords);
+        else renderHistory(allRecords.filter(r => r.date === filterVal));
+    };
+
+    const openEditModal = (id) => {
+        const record = allRecords.find(r => r.id === id);
+        if(!record) return;
+
+        document.getElementById('edit-id').value = record.id;
+        document.getElementById('edit-date').value = record.date;
+        document.getElementById('edit-time').value = record.time;
+        document.getElementById('edit-sys').value = record.sys_pressure || '';
+        document.getElementById('edit-dia').value = record.dia_pressure || '';
+        document.getElementById('edit-glu').value = record.glucose || '';
+        document.getElementById('edit-notes').value = record.notes || '';
+        
+        document.getElementById('edit-modal').classList.add('active');
+    };
+
+    const closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
+
+    document.getElementById('edit-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const recordId = document.getElementById('edit-id').value;
+        const updatedData = getFormData('edit-');
+        
+        if (!validateData(updatedData)) return;
+
+        toggleLoader('btn-update', 'update-loader', true);
+        const { error } = await supabaseClient.from('health_records').update(updatedData).eq('id', recordId);
+        toggleLoader('btn-update', 'update-loader', false);
+
+        if (error) showAlert('Error al actualizar');
+        else {
+            showAlert('Registro actualizado', 'success');
+            closeEditModal();
+            loadDataFromCloud(); // Recargar datos
+        }
+    });
+
+    // Auto-login
     window.onload = async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (session) {
