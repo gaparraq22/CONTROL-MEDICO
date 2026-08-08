@@ -19,7 +19,6 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        
         body { background-color: var(--bg-body); color: var(--text-main); font-size: 16px; padding-bottom: 80px; }
 
         .view { display: none; padding: 15px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.3s; }
@@ -32,14 +31,15 @@
 
         .form-group { margin-bottom: 15px; }
         label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); }
-        input, textarea { width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: #fafafa; }
-        input:focus { outline: none; border-color: var(--primary); background: #fff; }
+        input, textarea, select { width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: #fafafa; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); background: #fff; }
         
         .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         
         button { background: var(--primary); color: white; border: none; padding: 14px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
         button:active { transform: scale(0.98); }
         button.secondary { background: #f3f4f6; color: var(--text-main); border: 1px solid var(--border); }
+        button.success { background: var(--success); color: white; }
         
         .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; background: #e5e7eb; color: var(--text-main); }
 
@@ -64,7 +64,6 @@
         .alert { background: var(--danger); color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .alert.success { background: var(--success); }
 
-        /* Estilos del Modal de Edición */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; padding: 15px; }
         .modal-overlay.active { display: flex; }
         .modal-content { background: white; padding: 20px; border-radius: var(--radius); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
@@ -89,27 +88,25 @@
 
 <!-- VISTA 2: APLICACIÓN -->
 <div id="view-app" class="view">
-    
     <!-- Pestaña: Registrar -->
     <div id="tab-register" class="tab-content">
         <div class="card">
             <h2>Nuevo Registro</h2>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Puedes registrar solo la presión, solo la glucosa, o ambos.</p>
             <form id="health-form">
                 <div class="row-2">
                     <div class="form-group"><label>Fecha</label><input type="date" id="date" required></div>
                     <div class="form-group"><label>Hora</label><input type="time" id="time" required></div>
                 </div>
                 <div class="form-group">
-                    <label>Presión Arterial (mmHg) - Opcional</label>
+                    <label>Presión Arterial (Opcional)</label>
                     <div class="row-2">
                         <input type="number" id="sys" placeholder="Sistólica" min="0" pattern="\d*">
                         <input type="number" id="dia" placeholder="Diastólica" min="0" pattern="\d*">
                     </div>
                 </div>
-                <div class="form-group"><label>Glucosa (mg/dL) - Opcional</label><input type="number" id="glu" placeholder="Ej. 95" min="0" pattern="\d*"></div>
-                <div class="form-group"><label>Notas</label><textarea id="notes" placeholder="Síntomas, medicación..."></textarea></div>
-                <button type="submit" id="btn-save"><span class="loader" id="save-loader"></span><span>Guardar en la Nube</span></button>
+                <div class="form-group"><label>Glucosa (Opcional)</label><input type="number" id="glu" placeholder="Ej. 95" min="0" pattern="\d*"></div>
+                <div class="form-group"><label>Notas</label><textarea id="notes" placeholder="Síntomas..."></textarea></div>
+                <button type="submit" id="btn-save"><span class="loader" id="save-loader"></span><span>Guardar Registro</span></button>
             </form>
         </div>
     </div>
@@ -117,7 +114,10 @@
     <!-- Pestaña: Historial -->
     <div id="tab-history" class="tab-content" style="display: none;">
         <div class="card">
-            <h2>Tendencias</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0;">Tendencias</h2>
+                <button class="btn-small success" onclick="openExportModal()" style="font-weight:bold;">Exportar Reporte</button>
+            </div>
             <div class="chart-container"><canvas id="trendChart"></canvas></div>
         </div>
         <div class="card">
@@ -155,10 +155,35 @@
             </div>
             <div class="form-group"><label>Glucosa (Opcional)</label><input type="number" id="edit-glu"></div>
             <div class="form-group"><label>Notas</label><textarea id="edit-notes"></textarea></div>
-            
             <div class="row-2" style="margin-top:20px;">
                 <button type="button" class="secondary" onclick="closeEditModal()">Cancelar</button>
                 <button type="submit" id="btn-update"><span class="loader" id="update-loader"></span><span>Actualizar</span></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de Exportación -->
+<div id="export-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h2 style="margin-top:0;">Generar Reporte</h2>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Selecciona los parámetros para calcular estadísticas y visualizar los datos.</p>
+        <form id="export-form">
+            <div class="row-2">
+                <div class="form-group"><label>Desde</label><input type="date" id="exp-start" required></div>
+                <div class="form-group"><label>Hasta</label><input type="date" id="exp-end" required></div>
+            </div>
+            <div class="form-group">
+                <label>Agrupar resumen por:</label>
+                <select id="exp-grouping">
+                    <option value="day">Día</option>
+                    <option value="week">Semana</option>
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                <button type="button" class="success" onclick="generateReport('print')">Generar Reporte (PDF/Imprimir)</button>
+                <button type="button" class="secondary" onclick="generateReport('csv')">Descargar Datos CSV</button>
+                <button type="button" class="secondary" style="border:none; background:none; text-decoration:underline;" onclick="closeExportModal()">Cancelar</button>
             </div>
         </form>
     </div>
@@ -170,52 +195,52 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnbnpyeG1zZWJhcnBlZWZoaHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxODMxMzgsImV4cCI6MjEwMTc1OTEzOH0.VP29xoYENKAczX1qlcGpPoKAW5KHr8FhiDMZ2r8I0Ic';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Variables Globales
     let currentUser = null;
     let chartInstance = null;
-    let allRecords = []; // Almacena el historial para el buscador local
+    let allRecords = []; 
 
-    // --- 2. UTILIDADES MÉDICAS Y DE TIEMPO ---
-    const HealthLogic = {
-        categorizeBP: (sys, dia) => {
-            if (!sys || !dia) return null;
-            if (sys < 120 && dia < 80) return { label: 'Normal', class: 'normal' };
-            if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
-            return { label: 'Elevada', class: 'warning' };
-        },
-        categorizeGlucose: (glu) => {
-            if (!glu) return null;
-            if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
-            if (glu <= 100) return { label: 'Normal', class: 'normal' };
-            if (glu <= 125) return { label: 'Elevada', class: 'warning' };
-            return { label: 'Alta', class: 'danger' };
-        },
+    // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
+    const Utils = {
         formatAMPM: (timeStr) => {
-            let [hours, minutes] = timeStr.split(':');
-            hours = parseInt(hours);
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12 || 12; // Convierte '0' a '12'
-            return `${hours}:${minutes} ${ampm}`;
+            let [h, m] = timeStr.split(':');
+            h = parseInt(h);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            return `${h % 12 || 12}:${m} ${ampm}`;
+        },
+        getWeekStart: (dateStr) => {
+            const d = new Date(`${dateStr}T12:00:00`);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff)).toISOString().split('T')[0];
+        },
+        // Calcula Promedio, Max, Min y Desviación Estándar Poblacional
+        calcStats: (values) => {
+            const valid = values.filter(v => v !== null && v !== undefined && !isNaN(v));
+            if (valid.length === 0) return { avg: '-', max: '-', min: '-', std: '-' };
+            
+            const max = Math.max(...valid);
+            const min = Math.min(...valid);
+            const sum = valid.reduce((a, b) => a + b, 0);
+            const avg = sum / valid.length;
+            
+            const sqDiffs = valid.map(v => Math.pow(v - avg, 2));
+            const std = Math.sqrt(sqDiffs.reduce((a, b) => a + b, 0) / valid.length);
+            
+            return { avg: Math.round(avg), max, min, std: std.toFixed(1) };
         }
     };
 
-    // --- 3. UTILIDADES UI ---
+    // --- 3. UI BASICA ---
     const showAlert = (msg, type = 'danger') => {
-        const el = document.createElement('div');
-        el.className = `alert ${type}`;
-        el.textContent = msg;
+        const el = document.createElement('div'); el.className = `alert ${type}`; el.textContent = msg;
         document.getElementById('alert-container').appendChild(el);
         setTimeout(() => el.remove(), 4000);
     };
-
     const toggleLoader = (btnId, loaderId, isLoading) => {
-        const btn = document.getElementById(btnId);
-        const loader = document.getElementById(loaderId);
-        btn.disabled = isLoading;
-        loader.style.display = isLoading ? 'inline-block' : 'none';
+        const btn = document.getElementById(btnId); const loader = document.getElementById(loaderId);
+        btn.disabled = isLoading; loader.style.display = isLoading ? 'inline-block' : 'none';
         btn.querySelector('span:not(.loader)').style.opacity = isLoading ? '0' : '1';
     };
-
     const switchTab = (tabName) => {
         document.getElementById('tab-register').style.display = tabName === 'register' ? 'block' : 'none';
         document.getElementById('tab-history').style.display = tabName === 'history' ? 'block' : 'none';
@@ -223,251 +248,245 @@
         event.currentTarget.classList.add('active');
         if(tabName === 'history') loadDataFromCloud();
     };
-
     const initTime = () => {
         const now = new Date();
         document.getElementById('date').value = now.toLocaleDateString('en-CA'); 
         document.getElementById('time').value = now.toTimeString().slice(0,5); 
     };
 
-    // --- 4. AUTENTICACIÓN ---
+    // --- 4. AUTH ---
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         toggleLoader('btn-login', 'login-loader', true);
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ 
-            email: document.getElementById('email').value, 
-            password: document.getElementById('password').value 
-        });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
         toggleLoader('btn-login', 'login-loader', false);
-        if (error) showAlert('Error: Credenciales inválidas');
-        else {
-            currentUser = data.user;
-            document.getElementById('view-login').classList.remove('active');
-            document.getElementById('view-app').classList.add('active');
-            initTime();
-        }
+        if (error) showAlert('Credenciales inválidas');
+        else { currentUser = data.user; document.getElementById('view-login').classList.remove('active'); document.getElementById('view-app').classList.add('active'); initTime(); }
     });
+    document.getElementById('btn-logout').addEventListener('click', async () => { await supabaseClient.auth.signOut(); window.location.reload(); });
 
-    document.getElementById('btn-logout').addEventListener('click', async () => {
-        await supabaseClient.auth.signOut();
-        window.location.reload();
-    });
-
-    // --- 5. LÓGICA DE REGISTRO (CREATE / UPDATE) ---
+    // --- 5. REGISTRO & ACTUALIZACIÓN ---
     const getFormData = (prefix = '') => {
-        const sys = document.getElementById(`${prefix}sys`).value;
-        const dia = document.getElementById(`${prefix}dia`).value;
-        const glu = document.getElementById(`${prefix}glu`).value;
-        return {
-            date: document.getElementById(`${prefix}date`).value,
-            time: document.getElementById(`${prefix}time`).value,
-            sys_pressure: sys ? parseInt(sys) : null,
-            dia_pressure: dia ? parseInt(dia) : null,
-            glucose: glu ? parseInt(glu) : null,
-            notes: document.getElementById(`${prefix}notes`).value
-        };
+        const sys = document.getElementById(`${prefix}sys`).value; const dia = document.getElementById(`${prefix}dia`).value; const glu = document.getElementById(`${prefix}glu`).value;
+        return { date: document.getElementById(`${prefix}date`).value, time: document.getElementById(`${prefix}time`).value, sys_pressure: sys ? parseInt(sys) : null, dia_pressure: dia ? parseInt(dia) : null, glucose: glu ? parseInt(glu) : null, notes: document.getElementById(`${prefix}notes`).value };
     };
-
     const validateData = (data) => {
-        if (!data.sys_pressure && !data.dia_pressure && !data.glucose) {
-            showAlert('Debes registrar al menos la presión arterial o la glucosa.', 'warning');
-            return false;
-        }
-        if ((data.sys_pressure && !data.dia_pressure) || (!data.sys_pressure && data.dia_pressure)) {
-            showAlert('Si registras la presión, debes llenar sistólica y diastólica.', 'warning');
-            return false;
-        }
+        if (!data.sys_pressure && !data.dia_pressure && !data.glucose) { showAlert('Debes registrar presión o glucosa.', 'warning'); return false; }
+        if ((data.sys_pressure && !data.dia_pressure) || (!data.sys_pressure && data.dia_pressure)) { showAlert('Llena sistólica y diastólica.', 'warning'); return false; }
         return true;
     };
 
     document.getElementById('health-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const record = getFormData();
-        if (!validateData(record)) return;
-
-        record.patient_id = currentUser.id;
-        toggleLoader('btn-save', 'save-loader', true);
-        
+        e.preventDefault(); const record = getFormData(); if (!validateData(record)) return;
+        record.patient_id = currentUser.id; toggleLoader('btn-save', 'save-loader', true);
         const { error } = await supabaseClient.from('health_records').insert([record]);
         toggleLoader('btn-save', 'save-loader', false);
-
-        if (error) showAlert('Error al guardar en la nube');
-        else {
-            showAlert('Guardado exitosamente', 'success');
-            document.getElementById('health-form').reset();
-            initTime();
-        }
+        if (error) showAlert('Error al guardar'); else { showAlert('Guardado exitoso', 'success'); document.getElementById('health-form').reset(); initTime(); }
     });
-
-    // --- 6. HISTORIAL Y RENDERIZADO ---
-    const loadDataFromCloud = async () => {
-        const { data, error } = await supabaseClient
-            .from('health_records')
-            .select('*')
-            .order('date', { ascending: false })
-            .order('time', { ascending: false })
-            .limit(100);
-
-        if (error) showAlert('Error al descargar historial');
-        else {
-            allRecords = data;
-            document.getElementById('filter-date').value = ''; // Reset filtro
-            renderHistory(allRecords);
-            renderChart(allRecords);
-        }
-    };
-
-    const renderHistory = (records) => {
-        const list = document.getElementById('records-list');
-        list.innerHTML = '';
-        if(records.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:gray;">No se encontraron registros.</p>';
-            return;
-        }
-
-        records.forEach(r => {
-            const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
-            const gluCat = HealthLogic.categorizeGlucose(r.glucose);
-            
-            const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-            const timeAMPM = HealthLogic.formatAMPM(r.time);
-            
-            // Construir visualización condicional
-            let bpHtml = r.sys_pressure 
-                ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>`
-                : `<span style="color:var(--text-muted)"><em>Presión no registrada</em></span>`;
-                
-            let gluHtml = r.glucose 
-                ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span> <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>`
-                : `<span style="color:var(--text-muted)"><em>Glucosa no registrada</em></span>`;
-
-            list.innerHTML += `
-                <div class="record-item">
-                    <div class="record-header">
-                        <strong>${dateStr} - ${timeAMPM}</strong>
-                        <button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button>
-                    </div>
-                    <div style="margin-bottom: 8px;">${bpHtml}</div>
-                    <div>${gluHtml}</div>
-                    ${r.notes ? `<div style="font-size:0.85rem; color:gray; margin-top:10px; border-top:1px solid #eee; padding-top:5px;">${r.notes}</div>` : ''}
-                </div>
-            `;
-        });
-    };
-
-    const renderChart = (records) => {
-        const ascRecords = [...records].reverse().slice(-30); // Últimos 30 para el gráfico
-        const labels = ascRecords.map(r => `${r.date.slice(5).replace('-','/')} ${r.time.slice(0,5)}`);
-        
-        const ctx = document.getElementById('trendChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
-
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    // Solo renderiza los puntos donde no es null (Chart.js ignora nulls limpiamente)
-                    { label: 'Sistólica', data: ascRecords.map(r => r.sys_pressure), borderColor: '#ef4444', tension: 0.3, spanGaps: true },
-                    { label: 'Diastólica', data: ascRecords.map(r => r.dia_pressure), borderColor: '#f59e0b', tension: 0.3, spanGaps: true },
-                    { label: 'Glucosa', data: ascRecords.map(r => r.glucose), borderColor: '#2563eb', tension: 0.3, spanGaps: true }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
-                scales: { x: { display: false } }
-            }
-        });
-    };
-
-    // --- 7. FILTRO Y EDICIÓN ---
-    const applyDateFilter = () => {
-        const filterVal = document.getElementById('filter-date').value;
-        if(!filterVal) renderHistory(allRecords);
-        else renderHistory(allRecords.filter(r => r.date === filterVal));
-    };
-
-    const openEditModal = (id) => {
-        const record = allRecords.find(r => r.id === id);
-        if(!record) return;
-
-        document.getElementById('edit-id').value = record.id;
-        document.getElementById('edit-date').value = record.date;
-        document.getElementById('edit-time').value = record.time;
-        document.getElementById('edit-sys').value = record.sys_pressure || '';
-        document.getElementById('edit-dia').value = record.dia_pressure || '';
-        document.getElementById('edit-glu').value = record.glucose || '';
-        document.getElementById('edit-notes').value = record.notes || '';
-        
-        document.getElementById('edit-modal').classList.add('active');
-    };
-
-    const closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
 
     document.getElementById('edit-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-
         try {
-            const recordId = document.getElementById('edit-id').value;
-            const updatedData = getFormData('edit-');
-            
+            const recordId = document.getElementById('edit-id').value; const updatedData = getFormData('edit-');
             if (!validateData(updatedData)) return;
-
-            // 1. CIERRE INMEDIATO: Cerramos el modal antes de hacer cualquier otra cosa
             closeEditModal();
-            toggleLoader('btn-update', 'update-loader', true);
-
-            // 2. ACTUALIZACIÓN VISUAL INMEDIATA (Con protección de errores)
             try {
                 const recordIndex = allRecords.findIndex(r => r.id === recordId);
                 if (recordIndex !== -1) {
                     allRecords[recordIndex] = { ...allRecords[recordIndex], ...updatedData };
-                    renderHistory(allRecords); // Redibujar historial
-                    renderChart(allRecords);   // Redibujar gráfico
+                    renderHistory(allRecords); renderChart(allRecords);
                 }
-            } catch (errUI) {
-                console.warn("Fallo visual leve, pero los datos siguen seguros:", errUI);
-            }
-
-            // 3. ENVÍO A LA NUBE
-            const { data, error } = await supabaseClient
-                .from('health_records')
-                .update(updatedData)
-                .eq('id', recordId)
-                .select();
-
-            toggleLoader('btn-update', 'update-loader', false);
-
-            // 4. VERIFICACIÓN DE RESPUESTA
-            if (error) {
-                showAlert('Error de red: ' + error.message, 'danger');
-                loadDataFromCloud(); // Restauramos si no había internet
-            } else if (!data || data.length === 0) {
-                showAlert('Supabase denegó el cambio. Ejecuta las reglas SQL de nuevo.', 'warning');
-                loadDataFromCloud(); // Restauramos por falta de permisos
-            } else {
-                // Todo salió perfecto
-                showAlert('✔️ Registro actualizado en la nube', 'success');
-            }
-
-        } catch (errGeneral) {
-            // Si ocurre cualquier colapso imprevisto, te avisará
-            showAlert('Error del sistema: ' + errGeneral.message, 'danger');
-            closeEditModal();
-            toggleLoader('btn-update', 'update-loader', false);
-        }
+            } catch (errUI) {}
+            
+            const { data, error } = await supabaseClient.from('health_records').update(updatedData).eq('id', recordId).select();
+            
+            if (error) { showAlert('Error de red al actualizar', 'danger'); loadDataFromCloud(); } 
+            else if (!data || data.length === 0) { showAlert('Permiso denegado por base de datos.', 'warning'); loadDataFromCloud(); } 
+            else showAlert('✔️ Actualizado', 'success');
+        } catch (err) { showAlert('Error: ' + err.message, 'danger'); closeEditModal(); }
     });
 
-    // Auto-login
+    // --- 6. HISTORIAL Y RENDER ---
+    const loadDataFromCloud = async () => {
+        const { data, error } = await supabaseClient.from('health_records').select('*').order('date', { ascending: false }).order('time', { ascending: false });
+        if (error) showAlert('Error al descargar'); else { allRecords = data; document.getElementById('filter-date').value = ''; renderHistory(allRecords); renderChart(allRecords); }
+    };
+
+    const renderHistory = (records) => {
+        const list = document.getElementById('records-list'); list.innerHTML = '';
+        if(records.length === 0) { list.innerHTML = '<p style="text-align:center; color:gray;">Sin registros.</p>'; return; }
+        records.forEach(r => {
+            const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            let bpHtml = r.sys_pressure ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span>` : `<span style="color:var(--text-muted)"><em>Presión N/A</em></span>`;
+            let gluHtml = r.glucose ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span>` : `<span style="color:var(--text-muted)"><em>Glucosa N/A</em></span>`;
+            list.innerHTML += `
+                <div class="record-item">
+                    <div class="record-header"><strong>${dateStr} - ${Utils.formatAMPM(r.time)}</strong><button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button></div>
+                    <div style="margin-bottom: 8px;">${bpHtml}</div><div>${gluHtml}</div>
+                    ${r.notes ? `<div style="font-size:0.85rem; color:gray; margin-top:5px;">${r.notes}</div>` : ''}
+                </div>`;
+        });
+    };
+
+    const renderChart = (records) => {
+        const ascRecords = [...records].reverse().slice(-30); 
+        const labels = ascRecords.map(r => `${r.date.slice(5).replace('-','/')} ${r.time.slice(0,5)}`);
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: [
+                { label: 'Sistólica', data: ascRecords.map(r => r.sys_pressure), borderColor: '#ef4444', tension: 0.3, spanGaps: true },
+                { label: 'Diastólica', data: ascRecords.map(r => r.dia_pressure), borderColor: '#f59e0b', tension: 0.3, spanGaps: true },
+                { label: 'Glucosa', data: ascRecords.map(r => r.glucose), borderColor: '#2563eb', tension: 0.3, spanGaps: true }
+            ]},
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { display: false } } }
+        });
+    };
+
+    const applyDateFilter = () => {
+        const filterVal = document.getElementById('filter-date').value;
+        renderHistory(filterVal ? allRecords.filter(r => r.date === filterVal) : allRecords);
+    };
+
+    const openEditModal = (id) => {
+        const r = allRecords.find(x => x.id === id); if(!r) return;
+        document.getElementById('edit-id').value = r.id; document.getElementById('edit-date').value = r.date; document.getElementById('edit-time').value = r.time;
+        document.getElementById('edit-sys').value = r.sys_pressure || ''; document.getElementById('edit-dia').value = r.dia_pressure || '';
+        document.getElementById('edit-glu').value = r.glucose || ''; document.getElementById('edit-notes').value = r.notes || '';
+        document.getElementById('edit-modal').classList.add('active');
+    };
+    const closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
+
+    // --- 7. EXPORTACIÓN Y REPORTES ---
+    const openExportModal = () => {
+        if (allRecords.length > 0) {
+            // Auto-seleccionar rango completo disponible
+            document.getElementById('exp-start').value = allRecords[allRecords.length - 1].date;
+            document.getElementById('exp-end').value = allRecords[0].date;
+        }
+        document.getElementById('export-modal').classList.add('active');
+    };
+    const closeExportModal = () => document.getElementById('export-modal').classList.remove('active');
+
+    const generateReport = (type) => {
+        const start = document.getElementById('exp-start').value;
+        const end = document.getElementById('exp-end').value;
+        const grouping = document.getElementById('exp-grouping').value;
+        
+        if (!start || !end) return showAlert('Selecciona fechas válidas', 'warning');
+        if (start > end) return showAlert('La fecha de inicio debe ser menor a la final', 'warning');
+
+        // Filtrar y ordenar cronológicamente para el reporte
+        const data = allRecords.filter(r => r.date >= start && r.date <= end).sort((a,b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+        
+        if (data.length === 0) return showAlert('No hay registros en este rango', 'warning');
+
+        if (type === 'csv') exportCSV(data);
+        if (type === 'print') exportPrint(data, grouping, start, end);
+    };
+
+    const exportCSV = (data) => {
+        const headers = ["Fecha", "Hora", "Sistolica", "Diastolica", "Glucosa", "Notas"];
+        const rows = [headers.join(",")];
+        data.forEach(r => {
+            const notes = r.notes ? `"${r.notes.replace(/"/g, '""')}"` : "";
+            rows.push(`${r.date},${r.time},${r.sys_pressure||''},${r.dia_pressure||''},${r.glucose||''},${notes}`);
+        });
+        const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `SaludCloud_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click(); URL.revokeObjectURL(url);
+    };
+
+    const exportPrint = (data, grouping, start, end) => {
+        // Calcular Estadísticas Generales
+        const sysStats = Utils.calcStats(data.map(d => d.sys_pressure));
+        const diaStats = Utils.calcStats(data.map(d => d.dia_pressure));
+        const gluStats = Utils.calcStats(data.map(d => d.glucose));
+
+        // Calcular Estadísticas Agrupadas
+        const groups = {};
+        data.forEach(r => {
+            const groupKey = grouping === 'day' ? r.date : Utils.getWeekStart(r.date);
+            if (!groups[groupKey]) groups[groupKey] = { sys: [], dia: [], glu: [] };
+            groups[groupKey].sys.push(r.sys_pressure);
+            groups[groupKey].dia.push(r.dia_pressure);
+            groups[groupKey].glu.push(r.glucose);
+        });
+
+        let groupTableHTML = '';
+        for (const [key, records] of Object.entries(groups)) {
+            const s = Utils.calcStats(records.sys); const d = Utils.calcStats(records.dia); const g = Utils.calcStats(records.glu);
+            const label = grouping === 'day' ? key : `Semana del ${key}`;
+            groupTableHTML += `
+                <tr>
+                    <td>${label}</td>
+                    <td>${s.avg}/${d.avg}</td>
+                    <td>${g.avg}</td>
+                    <td>Max: ${s.max} | Min: ${s.min} | σ: ${s.std}</td>
+                    <td>Max: ${g.max} | Min: ${g.min} | σ: ${g.std}</td>
+                </tr>`;
+        }
+
+        let detailTableHTML = '';
+        data.forEach(r => {
+            detailTableHTML += `
+                <tr>
+                    <td>${r.date}</td><td>${Utils.formatAMPM(r.time)}</td>
+                    <td>${r.sys_pressure ? `${r.sys_pressure}/${r.dia_pressure}` : '-'}</td>
+                    <td>${r.glucose || '-'}</td><td>${r.notes || ''}</td>
+                </tr>`;
+        });
+
+        const printWindow = window.open('', '', 'width=900,height=650');
+        printWindow.document.write(`
+            <html><head><title>Reporte Médico</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+                h1, h2 { color: #2563eb; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f3f4f6; color: #1f2937; }
+                .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+                .stat-box { border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
+                @media print { button { display: none; } }
+            </style>
+            </head><body>
+                <div style="display:flex; justify-content:space-between;">
+                    <h1>Reporte Médico: Presión y Glucosa</h1>
+                    <button onclick="window.print()" style="padding:10px; font-weight:bold; cursor:pointer;">Imprimir / Guardar PDF</button>
+                </div>
+                <p><strong>Período evaluado:</strong> ${start} hasta ${end}</p>
+                <p style="font-size:12px; color:#666;">σ = Desviación Estándar Poblacional</p>
+                
+                <h2>1. Resumen General del Período</h2>
+                <div class="grid">
+                    <div class="stat-box"><h3>Sistólica</h3>Promedio: <strong>${sysStats.avg}</strong><br>Max: ${sysStats.max} | Min: ${sysStats.min}<br>Desviación (σ): ${sysStats.std}</div>
+                    <div class="stat-box"><h3>Diastólica</h3>Promedio: <strong>${diaStats.avg}</strong><br>Max: ${diaStats.max} | Min: ${diaStats.min}<br>Desviación (σ): ${diaStats.std}</div>
+                    <div class="stat-box"><h3>Glucosa</h3>Promedio: <strong>${gluStats.avg}</strong><br>Max: ${gluStats.max} | Min: ${gluStats.min}<br>Desviación (σ): ${gluStats.std}</div>
+                </div>
+
+                <h2>2. Comportamiento Agrupado (${grouping === 'day' ? 'Diario' : 'Semanal'})</h2>
+                <table>
+                    <thead><tr><th>Período</th><th>Prom. Presión (S/D)</th><th>Prom. Glucosa</th><th>Estadísticas Sistólica</th><th>Estadísticas Glucosa</th></tr></thead>
+                    <tbody>${groupTableHTML}</tbody>
+                </table>
+
+                <h2>3. Registros Detallados</h2>
+                <table>
+                    <thead><tr><th>Fecha</th><th>Hora</th><th>Presión (mmHg)</th><th>Glucosa (mg/dL)</th><th>Notas</th></tr></thead>
+                    <tbody>${detailTableHTML}</tbody>
+                </table>
+            </body></html>
+        `);
+        printWindow.document.close();
+        closeExportModal();
+    };
+
     window.onload = async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-            currentUser = session.user;
-            document.getElementById('view-login').classList.remove('active');
-            document.getElementById('view-app').classList.add('active');
-            initTime();
-        }
+        if (session) { currentUser = session.user; document.getElementById('view-login').classList.remove('active'); document.getElementById('view-app').classList.add('active'); initTime(); }
     };
 </script>
 
