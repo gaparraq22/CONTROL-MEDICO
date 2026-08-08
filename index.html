@@ -407,50 +407,55 @@
 
     document.getElementById('edit-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const recordId = document.getElementById('edit-id').value;
-        const updatedData = getFormData('edit-');
-        
-        if (!validateData(updatedData)) return;
 
-        toggleLoader('btn-update', 'update-loader', true);
+        try {
+            const recordId = document.getElementById('edit-id').value;
+            const updatedData = getFormData('edit-');
+            
+            if (!validateData(updatedData)) return;
 
-        // ⚡ 1. OPTIMISTIC UI: Actualizamos la pantalla AL INSTANTE sin esperar a la nube
-        const recordIndex = allRecords.findIndex(r => r.id === recordId);
-        if (recordIndex !== -1) {
-            // Mezclamos los datos viejos con los nuevos localmente
-            allRecords[recordIndex] = { ...allRecords[recordIndex], ...updatedData };
-            renderHistory(allRecords); // Se redibuja la lista sin recargar
-            renderChart(allRecords);   // Se redibuja el gráfico
-        }
-        
-        closeEditModal(); // Cerramos el modal inmediatamente para dar sensación de rapidez
+            // 1. CIERRE INMEDIATO: Cerramos el modal antes de hacer cualquier otra cosa
+            closeEditModal();
+            toggleLoader('btn-update', 'update-loader', true);
 
-        // ☁️ 2. ENVÍO A LA NUBE (En segundo plano)
-        // Agregamos .select() al final para forzar a Supabase a devolvernos lo que editó
-        const { data, error } = await supabaseClient
-            .from('health_records')
-            .update(updatedData)
-            .eq('id', recordId)
-            .select();
+            // 2. ACTUALIZACIÓN VISUAL INMEDIATA (Con protección de errores)
+            try {
+                const recordIndex = allRecords.findIndex(r => r.id === recordId);
+                if (recordIndex !== -1) {
+                    allRecords[recordIndex] = { ...allRecords[recordIndex], ...updatedData };
+                    renderHistory(allRecords); // Redibujar historial
+                    renderChart(allRecords);   // Redibujar gráfico
+                }
+            } catch (errUI) {
+                console.warn("Fallo visual leve, pero los datos siguen seguros:", errUI);
+            }
 
-        toggleLoader('btn-update', 'update-loader', false);
+            // 3. ENVÍO A LA NUBE
+            const { data, error } = await supabaseClient
+                .from('health_records')
+                .update(updatedData)
+                .eq('id', recordId)
+                .select();
 
-        // 3. Verificamos si hubo un fallo silencioso o de red
-        if (error) {
-            showAlert('Error de conexión al actualizar', 'danger');
-            loadDataFromCloud(); // Revertimos el cambio visual si no hay internet
-        } else if (data && data.length === 0) {
-            // Este es el detector del fallo silencioso
-            showAlert('Permiso denegado. Ejecuta el SQL del Paso 1.', 'warning');
-            loadDataFromCloud(); 
-        } else {
-            // Actualización silenciosa exitosa
-            const alertMsg = document.createElement('div');
-            alertMsg.className = 'alert success';
-            alertMsg.style.cssText = 'position:fixed; bottom:70px; left:50%; transform:translateX(-50%); width:90%; font-size:0.85rem; padding:8px; opacity:0.9;';
-            alertMsg.textContent = 'Guardado en la nube ✔️';
-            document.body.appendChild(alertMsg);
-            setTimeout(() => alertMsg.remove(), 2500);
+            toggleLoader('btn-update', 'update-loader', false);
+
+            // 4. VERIFICACIÓN DE RESPUESTA
+            if (error) {
+                showAlert('Error de red: ' + error.message, 'danger');
+                loadDataFromCloud(); // Restauramos si no había internet
+            } else if (!data || data.length === 0) {
+                showAlert('Supabase denegó el cambio. Ejecuta las reglas SQL de nuevo.', 'warning');
+                loadDataFromCloud(); // Restauramos por falta de permisos
+            } else {
+                // Todo salió perfecto
+                showAlert('✔️ Registro actualizado en la nube', 'success');
+            }
+
+        } catch (errGeneral) {
+            // Si ocurre cualquier colapso imprevisto, te avisará
+            showAlert('Error del sistema: ' + errGeneral.message, 'danger');
+            closeEditModal();
+            toggleLoader('btn-update', 'update-loader', false);
         }
     });
 
