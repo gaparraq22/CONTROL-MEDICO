@@ -413,14 +413,44 @@
         if (!validateData(updatedData)) return;
 
         toggleLoader('btn-update', 'update-loader', true);
-        const { error } = await supabaseClient.from('health_records').update(updatedData).eq('id', recordId);
+
+        // ⚡ 1. OPTIMISTIC UI: Actualizamos la pantalla AL INSTANTE sin esperar a la nube
+        const recordIndex = allRecords.findIndex(r => r.id === recordId);
+        if (recordIndex !== -1) {
+            // Mezclamos los datos viejos con los nuevos localmente
+            allRecords[recordIndex] = { ...allRecords[recordIndex], ...updatedData };
+            renderHistory(allRecords); // Se redibuja la lista sin recargar
+            renderChart(allRecords);   // Se redibuja el gráfico
+        }
+        
+        closeEditModal(); // Cerramos el modal inmediatamente para dar sensación de rapidez
+
+        // ☁️ 2. ENVÍO A LA NUBE (En segundo plano)
+        // Agregamos .select() al final para forzar a Supabase a devolvernos lo que editó
+        const { data, error } = await supabaseClient
+            .from('health_records')
+            .update(updatedData)
+            .eq('id', recordId)
+            .select();
+
         toggleLoader('btn-update', 'update-loader', false);
 
-        if (error) showAlert('Error al actualizar');
-        else {
-            showAlert('Registro actualizado', 'success');
-            closeEditModal();
-            loadDataFromCloud(); // Recargar datos
+        // 3. Verificamos si hubo un fallo silencioso o de red
+        if (error) {
+            showAlert('Error de conexión al actualizar', 'danger');
+            loadDataFromCloud(); // Revertimos el cambio visual si no hay internet
+        } else if (data && data.length === 0) {
+            // Este es el detector del fallo silencioso
+            showAlert('Permiso denegado. Ejecuta el SQL del Paso 1.', 'warning');
+            loadDataFromCloud(); 
+        } else {
+            // Actualización silenciosa exitosa
+            const alertMsg = document.createElement('div');
+            alertMsg.className = 'alert success';
+            alertMsg.style.cssText = 'position:fixed; bottom:70px; left:50%; transform:translateX(-50%); width:90%; font-size:0.85rem; padding:8px; opacity:0.9;';
+            alertMsg.textContent = 'Guardado en la nube ✔️';
+            document.body.appendChild(alertMsg);
+            setTimeout(() => alertMsg.remove(), 2500);
         }
     });
 
