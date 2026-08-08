@@ -48,6 +48,8 @@
 
         .record-item { padding: 15px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; background: #fff; }
         .record-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        
+        /* Estilos de las etiquetas de nivel */
         .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; display: inline-block; }
         .badge.normal { background: var(--success); }
         .badge.warning { background: var(--warning); }
@@ -200,6 +202,23 @@
     let allRecords = []; 
 
     // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
+    const HealthLogic = {
+        // Lógica de Niveles/Categorías
+        categorizeBP: (sys, dia) => {
+            if (!sys || !dia) return null;
+            if (sys < 120 && dia < 80) return { label: 'Normal', class: 'normal' };
+            if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
+            return { label: 'Elevada', class: 'warning' };
+        },
+        categorizeGlucose: (glu) => {
+            if (!glu) return null;
+            if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
+            if (glu <= 100) return { label: 'Normal', class: 'normal' };
+            if (glu <= 125) return { label: 'Elevada', class: 'warning' };
+            return { label: 'Alta', class: 'danger' };
+        }
+    };
+
     const Utils = {
         formatAMPM: (timeStr) => {
             let [h, m] = timeStr.split(':');
@@ -315,15 +334,31 @@
     const renderHistory = (records) => {
         const list = document.getElementById('records-list'); list.innerHTML = '';
         if(records.length === 0) { list.innerHTML = '<p style="text-align:center; color:gray;">Sin registros.</p>'; return; }
+        
         records.forEach(r => {
             const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-            let bpHtml = r.sys_pressure ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span>` : `<span style="color:var(--text-muted)"><em>Presión N/A</em></span>`;
-            let gluHtml = r.glucose ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span>` : `<span style="color:var(--text-muted)"><em>Glucosa N/A</em></span>`;
+            
+            // Reintegramos la lógica de niveles
+            const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
+            const gluCat = HealthLogic.categorizeGlucose(r.glucose);
+            
+            let bpHtml = r.sys_pressure 
+                ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>` 
+                : `<span style="color:var(--text-muted)"><em>Presión N/A</em></span>`;
+                
+            let gluHtml = r.glucose 
+                ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span> <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>` 
+                : `<span style="color:var(--text-muted)"><em>Glucosa N/A</em></span>`;
+                
             list.innerHTML += `
                 <div class="record-item">
-                    <div class="record-header"><strong>${dateStr} - ${Utils.formatAMPM(r.time)}</strong><button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button></div>
-                    <div style="margin-bottom: 8px;">${bpHtml}</div><div>${gluHtml}</div>
-                    ${r.notes ? `<div style="font-size:0.85rem; color:gray; margin-top:5px;">${r.notes}</div>` : ''}
+                    <div class="record-header">
+                        <strong>${dateStr} - ${Utils.formatAMPM(r.time)}</strong>
+                        <button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button>
+                    </div>
+                    <div style="margin-bottom: 12px; border-bottom: 1px dashed #eee; padding-bottom: 8px;">${bpHtml}</div>
+                    <div style="margin-bottom: 4px;">${gluHtml}</div>
+                    ${r.notes ? `<div style="font-size:0.85rem; color:gray; margin-top:10px; border-top:1px solid #eee; padding-top:8px;"><strong>Nota:</strong> ${r.notes}</div>` : ''}
                 </div>`;
         });
     };
@@ -361,7 +396,6 @@
     // --- 7. EXPORTACIÓN Y REPORTES ---
     const openExportModal = () => {
         if (allRecords.length > 0) {
-            // Auto-seleccionar rango completo disponible
             document.getElementById('exp-start').value = allRecords[allRecords.length - 1].date;
             document.getElementById('exp-end').value = allRecords[0].date;
         }
@@ -377,9 +411,7 @@
         if (!start || !end) return showAlert('Selecciona fechas válidas', 'warning');
         if (start > end) return showAlert('La fecha de inicio debe ser menor a la final', 'warning');
 
-        // Filtrar y ordenar cronológicamente para el reporte
         const data = allRecords.filter(r => r.date >= start && r.date <= end).sort((a,b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
-        
         if (data.length === 0) return showAlert('No hay registros en este rango', 'warning');
 
         if (type === 'csv') exportCSV(data);
@@ -400,12 +432,10 @@
     };
 
     const exportPrint = (data, grouping, start, end) => {
-        // Calcular Estadísticas Generales
         const sysStats = Utils.calcStats(data.map(d => d.sys_pressure));
         const diaStats = Utils.calcStats(data.map(d => d.dia_pressure));
         const gluStats = Utils.calcStats(data.map(d => d.glucose));
 
-        // Calcular Estadísticas Agrupadas
         const groups = {};
         data.forEach(r => {
             const groupKey = grouping === 'day' ? r.date : Utils.getWeekStart(r.date);
@@ -419,12 +449,15 @@
         for (const [key, records] of Object.entries(groups)) {
             const s = Utils.calcStats(records.sys); const d = Utils.calcStats(records.dia); const g = Utils.calcStats(records.glu);
             const label = grouping === 'day' ? key : `Semana del ${key}`;
+            
+            // Aquí se añade la columna Diastólica que faltaba en el PDF
             groupTableHTML += `
                 <tr>
                     <td>${label}</td>
                     <td>${s.avg}/${d.avg}</td>
                     <td>${g.avg}</td>
                     <td>Max: ${s.max} | Min: ${s.min} | σ: ${s.std}</td>
+                    <td>Max: ${d.max} | Min: ${d.min} | σ: ${d.std}</td>
                     <td>Max: ${g.max} | Min: ${g.min} | σ: ${g.std}</td>
                 </tr>`;
         }
@@ -469,7 +502,16 @@
 
                 <h2>2. Comportamiento Agrupado (${grouping === 'day' ? 'Diario' : 'Semanal'})</h2>
                 <table>
-                    <thead><tr><th>Período</th><th>Prom. Presión (S/D)</th><th>Prom. Glucosa</th><th>Estadísticas Sistólica</th><th>Estadísticas Glucosa</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th>Prom. Presión (S/D)</th>
+                            <th>Prom. Glucosa</th>
+                            <th>Estad. Sistólica</th>
+                            <th>Estad. Diastólica</th>
+                            <th>Estad. Glucosa</th>
+                        </tr>
+                    </thead>
                     <tbody>${groupTableHTML}</tbody>
                 </table>
 
