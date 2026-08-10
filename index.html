@@ -52,7 +52,7 @@
         /* Estilos de las etiquetas de nivel */
         .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; display: inline-block; }
         .badge.normal { background: var(--success); }
-        .badge.warning { background: var(--warning); }
+        .badge.warning { background: var(--warning); color: #fff; }
         .badge.danger { background: var(--danger); }
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
@@ -203,19 +203,20 @@
 
     // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
     const HealthLogic = {
-        // Lógica de Niveles/Categorías
+        // Lógica de Niveles para Hipertensión
         categorizeBP: (sys, dia) => {
             if (!sys || !dia) return null;
             if (sys < 120 && dia < 80) return { label: 'Normal', class: 'normal' };
             if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
             return { label: 'Elevada', class: 'warning' };
         },
+        // Lógica de Niveles adaptada para paciente diagnosticado con Diabetes Tipo 2 (Guías ADA)
         categorizeGlucose: (glu) => {
             if (!glu) return null;
             if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
-            if (glu <= 100) return { label: 'Normal', class: 'normal' };
-            if (glu <= 125) return { label: 'Elevada', class: 'warning' };
-            return { label: 'Alta', class: 'danger' };
+            if (glu <= 130) return { label: 'Objetivo (Normal)', class: 'normal' }; 
+            if (glu <= 180) return { label: 'Aceptable (Postprandial)', class: 'warning' }; 
+            return { label: 'Hiperglucemia', class: 'danger' };
         }
     };
 
@@ -232,7 +233,6 @@
             const diff = d.getDate() - day + (day === 0 ? -6 : 1);
             return new Date(d.setDate(diff)).toISOString().split('T')[0];
         },
-        // Calcula Promedio, Max, Min y Desviación Estándar Poblacional
         calcStats: (values) => {
             const valid = values.filter(v => v !== null && v !== undefined && !isNaN(v));
             if (valid.length === 0) return { avg: '-', max: '-', min: '-', std: '-' };
@@ -338,7 +338,6 @@
         records.forEach(r => {
             const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
             
-            // Reintegramos la lógica de niveles
             const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
             const gluCat = HealthLogic.categorizeGlucose(r.glucose);
             
@@ -450,7 +449,6 @@
             const s = Utils.calcStats(records.sys); const d = Utils.calcStats(records.dia); const g = Utils.calcStats(records.glu);
             const label = grouping === 'day' ? key : `Semana del ${key}`;
             
-            // Aquí se añade la columna Diastólica que faltaba en el PDF
             groupTableHTML += `
                 <tr>
                     <td>${label}</td>
