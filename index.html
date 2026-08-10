@@ -49,7 +49,6 @@
         .record-item { padding: 15px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; background: #fff; }
         .record-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
         
-        /* Estilos de las etiquetas de nivel */
         .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; display: inline-block; }
         .badge.normal { background: var(--success); }
         .badge.warning { background: var(--warning); color: #fff; }
@@ -203,20 +202,36 @@
 
     // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
     const HealthLogic = {
-        // Lógica de Niveles para Hipertensión
         categorizeBP: (sys, dia) => {
             if (!sys || !dia) return null;
             if (sys < 120 && dia < 80) return { label: 'Normal', class: 'normal' };
             if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
             return { label: 'Elevada', class: 'warning' };
         },
-        // Lógica de Niveles adaptada para paciente diagnosticado con Diabetes Tipo 2 (Guías ADA)
-        categorizeGlucose: (glu) => {
+        
+        // Lógica de Niveles ADA con filtro exacto por minutos
+        categorizeGlucose: (glu, timeStr) => {
             if (!glu) return null;
+            
+            let esAyuno = false;
+            if (timeStr) {
+                // Convertir la hora (ej. 09:29) a minutos totales desde la medianoche
+                const [h, m] = timeStr.split(':').map(Number);
+                const minutosTotal = (h * 60) + m;
+                
+                // Ayuno: Desde las 4:00 AM (240 min) hasta las 9:29 AM (569 min)
+                esAyuno = minutosTotal >= 240 && minutosTotal <= 569;
+            }
+
             if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
             if (glu <= 130) return { label: 'Objetivo (Normal)', class: 'normal' }; 
-            if (glu <= 180) return { label: 'Aceptable (Postprandial)', class: 'warning' }; 
-            return { label: 'Hiperglucemia', class: 'danger' };
+            
+            if (esAyuno) {
+                return { label: 'Alta (Ayuno)', class: 'danger' };
+            } else {
+                if (glu <= 180) return { label: 'Aceptable (Postprandial)', class: 'warning' }; 
+                return { label: 'Hiperglucemia', class: 'danger' };
+            }
         }
     };
 
@@ -339,7 +354,7 @@
             const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
             
             const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
-            const gluCat = HealthLogic.categorizeGlucose(r.glucose);
+            const gluCat = HealthLogic.categorizeGlucose(r.glucose, r.time);
             
             let bpHtml = r.sys_pressure 
                 ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>` 
