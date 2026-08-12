@@ -32,6 +32,7 @@
         .form-group { margin-bottom: 15px; }
         label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); }
         input, textarea, select { width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: #fafafa; }
+        input[type="checkbox"] { width: auto; display: inline-block; margin-right: 10px; transform: scale(1.2); }
         input:focus, select:focus { outline: none; border-color: var(--primary); background: #fff; }
         
         .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -40,6 +41,7 @@
         button:active { transform: scale(0.98); }
         button.secondary { background: #f3f4f6; color: var(--text-main); border: 1px solid var(--border); }
         button.success { background: var(--success); color: white; }
+        button.warning { background: var(--warning); color: white; }
         
         .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; background: #e5e7eb; color: var(--text-main); }
 
@@ -53,6 +55,7 @@
         .badge.normal { background: var(--success); }
         .badge.warning { background: var(--warning); color: #fff; }
         .badge.danger { background: var(--danger); }
+        .badge.info { background: #6b7280; } /* Gris para postprandial */
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         .nav-item { background: none; color: var(--text-muted); border: none; padding: 10px; font-size: 0.85rem; flex-direction: column; width: auto; border-radius: 0; }
@@ -137,6 +140,19 @@
     </nav>
 </div>
 
+<!-- Modal: Confirmación de Ayuno -->
+<div id="fasting-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 350px; text-align: center;">
+        <h3 style="margin-top:0;">Medición de Glucosa</h3>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:20px;">¿Esta toma de glucosa se realizó en ayuno (antes de ingerir alimentos)?</p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button type="button" class="primary" onclick="confirmFasting(true)">Sí, en ayuno</button>
+            <button type="button" class="warning" onclick="confirmFasting(false)">No, postprandial (comí)</button>
+            <button type="button" class="secondary" style="border:none; text-decoration:underline;" onclick="closeFastingModal()">Cancelar guardado</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de Edición -->
 <div id="edit-modal" class="modal-overlay">
     <div class="modal-content">
@@ -148,13 +164,22 @@
                 <div class="form-group"><label>Hora</label><input type="time" id="edit-time" required></div>
             </div>
             <div class="form-group">
-                <label>Presión Arterial (Opcional)</label>
+                <label>Presión Arterial</label>
                 <div class="row-2">
                     <input type="number" id="edit-sys" placeholder="Sistólica">
                     <input type="number" id="edit-dia" placeholder="Diastólica">
                 </div>
             </div>
-            <div class="form-group"><label>Glucosa (Opcional)</label><input type="number" id="edit-glu"></div>
+            <div class="form-group"><label>Glucosa</label><input type="number" id="edit-glu"></div>
+            
+            <!-- Checkbox de Ayuno (Solo visible si hay glucosa) -->
+            <div class="form-group" id="edit-fasting-group" style="display:none; background:#f9fafb; padding:10px; border-radius:8px;">
+                <label style="display:flex; align-items:center; margin:0; cursor:pointer;">
+                    <input type="checkbox" id="edit-is-fasting"> 
+                    <span style="font-weight:normal; margin-top:2px;">Medición en Ayuno</span>
+                </label>
+            </div>
+
             <div class="form-group"><label>Notas</label><textarea id="edit-notes"></textarea></div>
             <div class="row-2" style="margin-top:20px;">
                 <button type="button" class="secondary" onclick="closeEditModal()">Cancelar</button>
@@ -168,7 +193,6 @@
 <div id="export-modal" class="modal-overlay">
     <div class="modal-content">
         <h2 style="margin-top:0;">Generar Reporte</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:15px;">Selecciona los parámetros para calcular estadísticas y visualizar los datos.</p>
         <form id="export-form">
             <div class="row-2">
                 <div class="form-group"><label>Desde</label><input type="date" id="exp-start" required></div>
@@ -192,13 +216,14 @@
 
 <script>
     // --- 1. CONFIGURACIÓN SUPABASE ---
-    const SUPABASE_URL = 'https://ygnzrxmsebarpeefhhvv.supabase.co'; 
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnbnpyeG1zZWJhcnBlZWZoaHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxODMxMzgsImV4cCI6MjEwMTc1OTEzOH0.VP29xoYENKAczX1qlcGpPoKAW5KHr8FhiDMZ2r8I0Ic';
+    const SUPABASE_URL = 'https://TU_PROYECTO.supabase.co'; 
+    const SUPABASE_KEY = 'TU_CLAVE_ANON';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = null;
     let chartInstance = null;
     let allRecords = []; 
+    let pendingRecord = null; // Almacena temporalmente los datos del formulario
 
     // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
     const HealthLogic = {
@@ -208,19 +233,16 @@
             if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
             return { label: 'Elevada', class: 'warning' };
         },
-        
-        // Lógica de Niveles ADA (Determina Ayuno o Postprandial basado en un booleano de la UI)
+        // Lee directamente la decisión del usuario en base al parámetro isFasting
         categorizeGlucose: (glu, isFasting) => {
             if (!glu) return null;
             if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
             if (glu <= 130) return { label: 'Objetivo (Normal)', class: 'normal' }; 
             
             if (isFasting) {
-                // Solo para el primer registro del día
                 return { label: 'Alta (Ayuno)', class: 'danger' };
             } else {
-                // Para el segundo o posteriores registros del día
-                if (glu <= 180) return { label: 'Aceptable (Postprandial)', class: 'warning' }; 
+                if (glu <= 180) return { label: 'Aceptable (Post)', class: 'warning' }; 
                 return { label: 'Hiperglucemia', class: 'danger' };
             }
         }
@@ -228,29 +250,17 @@
 
     const Utils = {
         formatAMPM: (timeStr) => {
-            let [h, m] = timeStr.split(':');
-            h = parseInt(h);
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            return `${h % 12 || 12}:${m} ${ampm}`;
+            let [h, m] = timeStr.split(':'); h = parseInt(h); const ampm = h >= 12 ? 'PM' : 'AM'; return `${h % 12 || 12}:${m} ${ampm}`;
         },
         getWeekStart: (dateStr) => {
-            const d = new Date(`${dateStr}T12:00:00`);
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const d = new Date(`${dateStr}T12:00:00`); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1);
             return new Date(d.setDate(diff)).toISOString().split('T')[0];
         },
         calcStats: (values) => {
             const valid = values.filter(v => v !== null && v !== undefined && !isNaN(v));
             if (valid.length === 0) return { avg: '-', max: '-', min: '-', std: '-' };
-            
-            const max = Math.max(...valid);
-            const min = Math.min(...valid);
-            const sum = valid.reduce((a, b) => a + b, 0);
-            const avg = sum / valid.length;
-            
-            const sqDiffs = valid.map(v => Math.pow(v - avg, 2));
-            const std = Math.sqrt(sqDiffs.reduce((a, b) => a + b, 0) / valid.length);
-            
+            const max = Math.max(...valid); const min = Math.min(...valid); const sum = valid.reduce((a, b) => a + b, 0); const avg = sum / valid.length;
+            const sqDiffs = valid.map(v => Math.pow(v - avg, 2)); const std = Math.sqrt(sqDiffs.reduce((a, b) => a + b, 0) / valid.length);
             return { avg: Math.round(avg), max, min, std: std.toFixed(1) };
         }
     };
@@ -258,8 +268,7 @@
     // --- 3. UI BASICA ---
     const showAlert = (msg, type = 'danger') => {
         const el = document.createElement('div'); el.className = `alert ${type}`; el.textContent = msg;
-        document.getElementById('alert-container').appendChild(el);
-        setTimeout(() => el.remove(), 4000);
+        document.getElementById('alert-container').appendChild(el); setTimeout(() => el.remove(), 4000);
     };
     const toggleLoader = (btnId, loaderId, isLoading) => {
         const btn = document.getElementById(btnId); const loader = document.getElementById(loaderId);
@@ -269,31 +278,28 @@
     const switchTab = (tabName) => {
         document.getElementById('tab-register').style.display = tabName === 'register' ? 'block' : 'none';
         document.getElementById('tab-history').style.display = tabName === 'history' ? 'block' : 'none';
-        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-        event.currentTarget.classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active')); event.currentTarget.classList.add('active');
         if(tabName === 'history') loadDataFromCloud();
     };
     const initTime = () => {
-        const now = new Date();
-        document.getElementById('date').value = now.toLocaleDateString('en-CA'); 
-        document.getElementById('time').value = now.toTimeString().slice(0,5); 
+        const now = new Date(); document.getElementById('date').value = now.toLocaleDateString('en-CA'); document.getElementById('time').value = now.toTimeString().slice(0,5); 
     };
 
     // --- 4. AUTH ---
     document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        toggleLoader('btn-login', 'login-loader', true);
+        e.preventDefault(); toggleLoader('btn-login', 'login-loader', true);
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('email').value, password: document.getElementById('password').value });
         toggleLoader('btn-login', 'login-loader', false);
-        if (error) showAlert('Credenciales inválidas');
-        else { currentUser = data.user; document.getElementById('view-login').classList.remove('active'); document.getElementById('view-app').classList.add('active'); initTime(); }
+        if (error) showAlert('Credenciales inválidas'); else { currentUser = data.user; document.getElementById('view-login').classList.remove('active'); document.getElementById('view-app').classList.add('active'); initTime(); loadDataFromCloud(); }
     });
     document.getElementById('btn-logout').addEventListener('click', async () => { await supabaseClient.auth.signOut(); window.location.reload(); });
 
-    // --- 5. REGISTRO & ACTUALIZACIÓN ---
+    // --- 5. REGISTRO & LÓGICA DE AYUNO ---
     const getFormData = (prefix = '') => {
         const sys = document.getElementById(`${prefix}sys`).value; const dia = document.getElementById(`${prefix}dia`).value; const glu = document.getElementById(`${prefix}glu`).value;
-        return { date: document.getElementById(`${prefix}date`).value, time: document.getElementById(`${prefix}time`).value, sys_pressure: sys ? parseInt(sys) : null, dia_pressure: dia ? parseInt(dia) : null, glucose: glu ? parseInt(glu) : null, notes: document.getElementById(`${prefix}notes`).value };
+        const data = { date: document.getElementById(`${prefix}date`).value, time: document.getElementById(`${prefix}time`).value, sys_pressure: sys ? parseInt(sys) : null, dia_pressure: dia ? parseInt(dia) : null, glucose: glu ? parseInt(glu) : null, notes: document.getElementById(`${prefix}notes`).value };
+        if (prefix === 'edit-') data.is_fasting = document.getElementById('edit-is-fasting').checked;
+        return data;
     };
     const validateData = (data) => {
         if (!data.sys_pressure && !data.dia_pressure && !data.glucose) { showAlert('Debes registrar presión o glucosa.', 'warning'); return false; }
@@ -301,20 +307,66 @@
         return true;
     };
 
-    document.getElementById('health-form').addEventListener('submit', async (e) => {
-        e.preventDefault(); const record = getFormData(); if (!validateData(record)) return;
-        record.patient_id = currentUser.id; toggleLoader('btn-save', 'save-loader', true);
-        const { error } = await supabaseClient.from('health_records').insert([record]);
-        toggleLoader('btn-save', 'save-loader', false);
-        if (error) showAlert('Error al guardar'); else { showAlert('Guardado exitoso', 'success'); document.getElementById('health-form').reset(); initTime(); }
+    // Al darle al botón Guardar
+    document.getElementById('health-form').addEventListener('submit', (e) => {
+        e.preventDefault(); 
+        const record = getFormData(); 
+        if (!validateData(record)) return;
+
+        if (record.glucose) {
+            // Verificar si el usuario YA registró un ayuno en esta fecha
+            const hasAyunoHoy = allRecords.some(r => r.date === record.date && r.is_fasting);
+            
+            if (hasAyunoHoy) {
+                // Si ya hay un ayuno, forzamos a que esta sea postprandial sin preguntar
+                record.is_fasting = false;
+                executeSave(record);
+            } else {
+                // Si no hay ayunos registrados hoy, le preguntamos
+                pendingRecord = record;
+                document.getElementById('fasting-modal').classList.add('active');
+            }
+        } else {
+            record.is_fasting = false; // Es un registro solo de presión
+            executeSave(record);
+        }
     });
 
+    // Respuestas del modal de ayuno
+    const confirmFasting = (isFasting) => {
+        document.getElementById('fasting-modal').classList.remove('active');
+        if (pendingRecord) {
+            pendingRecord.is_fasting = isFasting;
+            executeSave(pendingRecord);
+            pendingRecord = null;
+        }
+    };
+    const closeFastingModal = () => { document.getElementById('fasting-modal').classList.remove('active'); pendingRecord = null; };
+
+    // Función definitiva para enviar a Supabase
+    const executeSave = async (record) => {
+        record.patient_id = currentUser.id; 
+        toggleLoader('btn-save', 'save-loader', true);
+        const { error } = await supabaseClient.from('health_records').insert([record]);
+        toggleLoader('btn-save', 'save-loader', false);
+        
+        if (error) showAlert('Error al guardar'); 
+        else { 
+            showAlert('Guardado exitoso', 'success'); 
+            document.getElementById('health-form').reset(); 
+            initTime();
+            loadDataFromCloud(); // Actualiza la lista interna invisiblemente
+        }
+    };
+
+    // EDICIÓN DE REGISTRO
     document.getElementById('edit-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
             const recordId = document.getElementById('edit-id').value; const updatedData = getFormData('edit-');
             if (!validateData(updatedData)) return;
             closeEditModal();
+            
             try {
                 const recordIndex = allRecords.findIndex(r => r.id === recordId);
                 if (recordIndex !== -1) {
@@ -326,7 +378,7 @@
             const { data, error } = await supabaseClient.from('health_records').update(updatedData).eq('id', recordId).select();
             
             if (error) { showAlert('Error de red al actualizar', 'danger'); loadDataFromCloud(); } 
-            else if (!data || data.length === 0) { showAlert('Permiso denegado por base de datos.', 'warning'); loadDataFromCloud(); } 
+            else if (!data || data.length === 0) { showAlert('Permiso denegado.', 'warning'); loadDataFromCloud(); } 
             else showAlert('✔️ Actualizado', 'success');
         } catch (err) { showAlert('Error: ' + err.message, 'danger'); closeEditModal(); }
     });
@@ -341,38 +393,18 @@
         const list = document.getElementById('records-list'); list.innerHTML = '';
         if(records.length === 0) { list.innerHTML = '<p style="text-align:center; color:gray;">Sin registros.</p>'; return; }
         
-        // ⚡ NUEVA LÓGICA: Determinar cuál es la primera medición de glucosa de cada día
-        const primerosDelDiaIds = new Set();
-        const masTempranoPorFecha = {};
-        
-        records.forEach(r => {
-            if (r.glucose) {
-                // Comparamos los strings de hora directamente. "07:00" es menor que "09:00"
-                if (!masTempranoPorFecha[r.date] || r.time < masTempranoPorFecha[r.date].time) {
-                    masTempranoPorFecha[r.date] = { time: r.time, id: r.id };
-                }
-            }
-        });
-        
-        // Guardamos los IDs de esos primeros registros en una lista rápida (Set)
-        Object.values(masTempranoPorFecha).forEach(item => primerosDelDiaIds.add(item.id));
-
         records.forEach(r => {
             const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
             
             const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
+            // Lee el booleano 'is_fasting' que el usuario guardó
+            const gluCat = HealthLogic.categorizeGlucose(r.glucose, r.is_fasting);
             
-            // Verificamos si este registro exacto fue el primero de su día
-            const isFasting = primerosDelDiaIds.has(r.id);
-            const gluCat = HealthLogic.categorizeGlucose(r.glucose, isFasting);
+            let bpHtml = r.sys_pressure ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>` : `<span style="color:var(--text-muted)"><em>Presión N/A</em></span>`;
             
-            let bpHtml = r.sys_pressure 
-                ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>` 
-                : `<span style="color:var(--text-muted)"><em>Presión N/A</em></span>`;
-                
-            let gluHtml = r.glucose 
-                ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL</span> <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>` 
-                : `<span style="color:var(--text-muted)"><em>Glucosa N/A</em></span>`;
+            // Si tiene glucosa, le agregamos visualmente si fue en ayuno o no
+            let gluStatus = r.is_fasting ? " <small style='color:var(--primary);'>(Ayuno)</small>" : " <small style='color:var(--text-muted);'>(Post)</small>";
+            let gluHtml = r.glucose ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL${gluStatus}</span> <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>` : `<span style="color:var(--text-muted)"><em>Glucosa N/A</em></span>`;
                 
             list.innerHTML += `
                 <div class="record-item">
@@ -413,145 +445,97 @@
         document.getElementById('edit-id').value = r.id; document.getElementById('edit-date').value = r.date; document.getElementById('edit-time').value = r.time;
         document.getElementById('edit-sys').value = r.sys_pressure || ''; document.getElementById('edit-dia').value = r.dia_pressure || '';
         document.getElementById('edit-glu').value = r.glucose || ''; document.getElementById('edit-notes').value = r.notes || '';
+        
+        // Control inteligente del Checkbox de Ayuno en edición
+        const editFastingGroup = document.getElementById('edit-fasting-group');
+        if (r.glucose) {
+            editFastingGroup.style.display = 'block';
+            document.getElementById('edit-is-fasting').checked = !!r.is_fasting;
+            
+            // Si ya existe un registro de ayuno ESTE MISMO DÍA que NO sea el que estamos editando,
+            // deshabilitamos el checkbox para proteger la regla de "solo un ayuno por día"
+            const hasAyunoAnother = allRecords.some(x => x.date === r.date && x.is_fasting && x.id !== r.id);
+            document.getElementById('edit-is-fasting').disabled = hasAyunoAnother;
+        } else {
+            editFastingGroup.style.display = 'none';
+        }
+        
         document.getElementById('edit-modal').classList.add('active');
     };
     const closeEditModal = () => document.getElementById('edit-modal').classList.remove('active');
 
     // --- 7. EXPORTACIÓN Y REPORTES ---
     const openExportModal = () => {
-        if (allRecords.length > 0) {
-            document.getElementById('exp-start').value = allRecords[allRecords.length - 1].date;
-            document.getElementById('exp-end').value = allRecords[0].date;
-        }
+        if (allRecords.length > 0) { document.getElementById('exp-start').value = allRecords[allRecords.length - 1].date; document.getElementById('exp-end').value = allRecords[0].date; }
         document.getElementById('export-modal').classList.add('active');
     };
     const closeExportModal = () => document.getElementById('export-modal').classList.remove('active');
 
     const generateReport = (type) => {
-        const start = document.getElementById('exp-start').value;
-        const end = document.getElementById('exp-end').value;
-        const grouping = document.getElementById('exp-grouping').value;
-        
-        if (!start || !end) return showAlert('Selecciona fechas válidas', 'warning');
-        if (start > end) return showAlert('La fecha de inicio debe ser menor a la final', 'warning');
-
+        const start = document.getElementById('exp-start').value; const end = document.getElementById('exp-end').value; const grouping = document.getElementById('exp-grouping').value;
+        if (!start || !end) return showAlert('Selecciona fechas válidas', 'warning'); if (start > end) return showAlert('La fecha de inicio debe ser menor', 'warning');
         const data = allRecords.filter(r => r.date >= start && r.date <= end).sort((a,b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
         if (data.length === 0) return showAlert('No hay registros en este rango', 'warning');
-
-        if (type === 'csv') exportCSV(data);
-        if (type === 'print') exportPrint(data, grouping, start, end);
+        if (type === 'csv') exportCSV(data); if (type === 'print') exportPrint(data, grouping, start, end);
     };
 
     const exportCSV = (data) => {
-        const headers = ["Fecha", "Hora", "Sistolica", "Diastolica", "Glucosa", "Notas"];
-        const rows = [headers.join(",")];
+        const rows = [["Fecha", "Hora", "Sistolica", "Diastolica", "Glucosa", "Condicion", "Notas"].join(",")];
         data.forEach(r => {
+            const cond = r.glucose ? (r.is_fasting ? "Ayuno" : "Postprandial") : "";
             const notes = r.notes ? `"${r.notes.replace(/"/g, '""')}"` : "";
-            rows.push(`${r.date},${r.time},${r.sys_pressure||''},${r.dia_pressure||''},${r.glucose||''},${notes}`);
+            rows.push(`${r.date},${r.time},${r.sys_pressure||''},${r.dia_pressure||''},${r.glucose||''},${cond},${notes}`);
         });
-        const blob = new Blob([rows.join("\n")], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = `SaludCloud_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click(); URL.revokeObjectURL(url);
+        const url = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv" }));
+        const a = document.createElement("a"); a.href = url; a.download = `SaludCloud_${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url);
     };
 
     const exportPrint = (data, grouping, start, end) => {
-        const sysStats = Utils.calcStats(data.map(d => d.sys_pressure));
-        const diaStats = Utils.calcStats(data.map(d => d.dia_pressure));
-        const gluStats = Utils.calcStats(data.map(d => d.glucose));
-
+        const sysStats = Utils.calcStats(data.map(d => d.sys_pressure)); const diaStats = Utils.calcStats(data.map(d => d.dia_pressure)); const gluStats = Utils.calcStats(data.map(d => d.glucose));
         const groups = {};
         data.forEach(r => {
             const groupKey = grouping === 'day' ? r.date : Utils.getWeekStart(r.date);
             if (!groups[groupKey]) groups[groupKey] = { sys: [], dia: [], glu: [] };
-            groups[groupKey].sys.push(r.sys_pressure);
-            groups[groupKey].dia.push(r.dia_pressure);
-            groups[groupKey].glu.push(r.glucose);
+            groups[groupKey].sys.push(r.sys_pressure); groups[groupKey].dia.push(r.dia_pressure); groups[groupKey].glu.push(r.glucose);
         });
 
         let groupTableHTML = '';
         for (const [key, records] of Object.entries(groups)) {
             const s = Utils.calcStats(records.sys); const d = Utils.calcStats(records.dia); const g = Utils.calcStats(records.glu);
-            const label = grouping === 'day' ? key : `Semana del ${key}`;
-            
-            groupTableHTML += `
-                <tr>
-                    <td>${label}</td>
-                    <td>${s.avg}/${d.avg}</td>
-                    <td>${g.avg}</td>
-                    <td>Max: ${s.max} | Min: ${s.min} | σ: ${s.std}</td>
-                    <td>Max: ${d.max} | Min: ${d.min} | σ: ${d.std}</td>
-                    <td>Max: ${g.max} | Min: ${g.min} | σ: ${g.std}</td>
-                </tr>`;
+            groupTableHTML += `<tr><td>${grouping === 'day' ? key : `Semana ${key}`}</td><td>${s.avg}/${d.avg}</td><td>${g.avg}</td>
+            <td>Max: ${s.max} | Min: ${s.min} | σ: ${s.std}</td><td>Max: ${d.max} | Min: ${d.min} | σ: ${d.std}</td><td>Max: ${g.max} | Min: ${g.min} | σ: ${g.std}</td></tr>`;
         }
 
         let detailTableHTML = '';
         data.forEach(r => {
-            detailTableHTML += `
-                <tr>
-                    <td>${r.date}</td><td>${Utils.formatAMPM(r.time)}</td>
-                    <td>${r.sys_pressure ? `${r.sys_pressure}/${r.dia_pressure}` : '-'}</td>
-                    <td>${r.glucose || '-'}</td><td>${r.notes || ''}</td>
-                </tr>`;
+            const gluText = r.glucose ? `${r.glucose} <small>(${r.is_fasting ? 'Ayuno' : 'Post'})</small>` : '-';
+            detailTableHTML += `<tr><td>${r.date}</td><td>${Utils.formatAMPM(r.time)}</td><td>${r.sys_pressure ? `${r.sys_pressure}/${r.dia_pressure}` : '-'}</td><td>${gluText}</td><td>${r.notes || ''}</td></tr>`;
         });
 
         const printWindow = window.open('', '', 'width=900,height=650');
         printWindow.document.write(`
             <html><head><title>Reporte Médico</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
-                h1, h2 { color: #2563eb; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f3f4f6; color: #1f2937; }
-                .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-                .stat-box { border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
-                @media print { button { display: none; } }
-            </style>
+            <style>body { font-family: Arial; padding: 20px; color: #333; } h1, h2 { color: #2563eb; } table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f3f4f6; } .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; } .stat-box { border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; } @media print { button { display: none; } }</style>
             </head><body>
-                <div style="display:flex; justify-content:space-between;">
-                    <h1>Reporte Médico: Presión y Glucosa</h1>
-                    <button onclick="window.print()" style="padding:10px; font-weight:bold; cursor:pointer;">Imprimir / Guardar PDF</button>
-                </div>
-                <p><strong>Período evaluado:</strong> ${start} hasta ${end}</p>
-                <p style="font-size:12px; color:#666;">σ = Desviación Estándar Poblacional</p>
-                
-                <h2>1. Resumen General del Período</h2>
+                <div style="display:flex; justify-content:space-between;"><h1>Reporte Médico</h1><button onclick="window.print()" style="padding:10px; cursor:pointer;">Imprimir PDF</button></div>
+                <p><strong>Período:</strong> ${start} hasta ${end}</p>
+                <h2>1. Resumen General</h2>
                 <div class="grid">
-                    <div class="stat-box"><h3>Sistólica</h3>Promedio: <strong>${sysStats.avg}</strong><br>Max: ${sysStats.max} | Min: ${sysStats.min}<br>Desviación (σ): ${sysStats.std}</div>
-                    <div class="stat-box"><h3>Diastólica</h3>Promedio: <strong>${diaStats.avg}</strong><br>Max: ${diaStats.max} | Min: ${diaStats.min}<br>Desviación (σ): ${diaStats.std}</div>
-                    <div class="stat-box"><h3>Glucosa</h3>Promedio: <strong>${gluStats.avg}</strong><br>Max: ${gluStats.max} | Min: ${gluStats.min}<br>Desviación (σ): ${gluStats.std}</div>
+                    <div class="stat-box"><h3>Sistólica</h3>Promedio: <strong>${sysStats.avg}</strong><br>Max: ${sysStats.max} | Min: ${sysStats.min}<br>σ: ${sysStats.std}</div>
+                    <div class="stat-box"><h3>Diastólica</h3>Promedio: <strong>${diaStats.avg}</strong><br>Max: ${diaStats.max} | Min: ${diaStats.min}<br>σ: ${diaStats.std}</div>
+                    <div class="stat-box"><h3>Glucosa</h3>Promedio: <strong>${gluStats.avg}</strong><br>Max: ${gluStats.max} | Min: ${gluStats.min}<br>σ: ${gluStats.std}</div>
                 </div>
-
-                <h2>2. Comportamiento Agrupado (${grouping === 'day' ? 'Diario' : 'Semanal'})</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Período</th>
-                            <th>Prom. Presión (S/D)</th>
-                            <th>Prom. Glucosa</th>
-                            <th>Estad. Sistólica</th>
-                            <th>Estad. Diastólica</th>
-                            <th>Estad. Glucosa</th>
-                        </tr>
-                    </thead>
-                    <tbody>${groupTableHTML}</tbody>
-                </table>
-
+                <h2>2. Comportamiento Agrupado</h2>
+                <table><thead><tr><th>Período</th><th>Prom. Presión (S/D)</th><th>Prom. Glucosa</th><th>Estad. Sistólica</th><th>Estad. Diastólica</th><th>Estad. Glucosa</th></tr></thead><tbody>${groupTableHTML}</tbody></table>
                 <h2>3. Registros Detallados</h2>
-                <table>
-                    <thead><tr><th>Fecha</th><th>Hora</th><th>Presión (mmHg)</th><th>Glucosa (mg/dL)</th><th>Notas</th></tr></thead>
-                    <tbody>${detailTableHTML}</tbody>
-                </table>
+                <table><thead><tr><th>Fecha</th><th>Hora</th><th>Presión (mmHg)</th><th>Glucosa (mg/dL)</th><th>Notas</th></tr></thead><tbody>${detailTableHTML}</tbody></table>
             </body></html>
-        `);
-        printWindow.document.close();
-        closeExportModal();
+        `); printWindow.document.close(); closeExportModal();
     };
 
     window.onload = async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) { currentUser = session.user; document.getElementById('view-login').classList.remove('active'); document.getElementById('view-app').classList.add('active'); initTime(); }
+        if (session) { currentUser = session.user; document.getElementById('view-login').classList.remove('active'); document.getElementById('view-app').classList.add('active'); initTime(); loadDataFromCloud(); }
     };
 </script>
 
