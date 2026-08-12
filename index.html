@@ -209,26 +209,17 @@
             return { label: 'Elevada', class: 'warning' };
         },
         
-        // Lógica de Niveles ADA con filtro exacto por minutos
-        categorizeGlucose: (glu, timeStr) => {
+        // Lógica de Niveles ADA (Determina Ayuno o Postprandial basado en un booleano de la UI)
+        categorizeGlucose: (glu, isFasting) => {
             if (!glu) return null;
-            
-            let esAyuno = false;
-            if (timeStr) {
-                // Convertir la hora (ej. 09:29) a minutos totales desde la medianoche
-                const [h, m] = timeStr.split(':').map(Number);
-                const minutosTotal = (h * 60) + m;
-                
-                // Ayuno: Desde las 4:00 AM (240 min) hasta las 9:29 AM (569 min)
-                esAyuno = minutosTotal >= 240 && minutosTotal <= 569;
-            }
-
             if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
             if (glu <= 130) return { label: 'Objetivo (Normal)', class: 'normal' }; 
             
-            if (esAyuno) {
+            if (isFasting) {
+                // Solo para el primer registro del día
                 return { label: 'Alta (Ayuno)', class: 'danger' };
             } else {
+                // Para el segundo o posteriores registros del día
                 if (glu <= 180) return { label: 'Aceptable (Postprandial)', class: 'warning' }; 
                 return { label: 'Hiperglucemia', class: 'danger' };
             }
@@ -350,11 +341,30 @@
         const list = document.getElementById('records-list'); list.innerHTML = '';
         if(records.length === 0) { list.innerHTML = '<p style="text-align:center; color:gray;">Sin registros.</p>'; return; }
         
+        // ⚡ NUEVA LÓGICA: Determinar cuál es la primera medición de glucosa de cada día
+        const primerosDelDiaIds = new Set();
+        const masTempranoPorFecha = {};
+        
+        records.forEach(r => {
+            if (r.glucose) {
+                // Comparamos los strings de hora directamente. "07:00" es menor que "09:00"
+                if (!masTempranoPorFecha[r.date] || r.time < masTempranoPorFecha[r.date].time) {
+                    masTempranoPorFecha[r.date] = { time: r.time, id: r.id };
+                }
+            }
+        });
+        
+        // Guardamos los IDs de esos primeros registros en una lista rápida (Set)
+        Object.values(masTempranoPorFecha).forEach(item => primerosDelDiaIds.add(item.id));
+
         records.forEach(r => {
             const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
             
             const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
-            const gluCat = HealthLogic.categorizeGlucose(r.glucose, r.time);
+            
+            // Verificamos si este registro exacto fue el primero de su día
+            const isFasting = primerosDelDiaIds.has(r.id);
+            const gluCat = HealthLogic.categorizeGlucose(r.glucose, isFasting);
             
             let bpHtml = r.sys_pressure 
                 ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>` 
