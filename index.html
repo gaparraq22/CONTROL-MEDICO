@@ -42,9 +42,10 @@
         button.secondary { background: #f3f4f6; color: var(--text-main); border: 1px solid var(--border); }
         button.success { background: var(--success); color: white; }
         button.warning { background: var(--warning); color: white; }
+        button.danger-btn { background: var(--danger); color: white; }
         
         .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; background: #e5e7eb; color: var(--text-main); border: none; border-radius: 6px; cursor: pointer; }
-        .btn-small.danger { background: #fee2e2; color: #b91c1c; } /* Estilo suave para botón borrar */
+        .btn-small.danger { background: #fee2e2; color: #b91c1c; }
 
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -57,6 +58,7 @@
         .badge.normal { background: var(--success); }
         .badge.warning { background: var(--warning); color: #fff; }
         .badge.danger { background: var(--danger); }
+        .badge.info { background: #6b7280; }
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         .nav-item { background: none; color: var(--text-muted); border: none; padding: 10px; font-size: 0.85rem; flex-direction: column; width: auto; border-radius: 0; }
@@ -154,6 +156,18 @@
     </div>
 </div>
 
+<!-- Modal: Confirmación de Borrado -->
+<div id="delete-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 350px; text-align: center;">
+        <h3 style="margin-top:0; color: var(--danger);">Eliminar Registro</h3>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:20px;">¿Estás seguro de que deseas borrar este registro permanentemente?<br><br>Esta acción no se puede deshacer.</p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button type="button" class="danger-btn" onclick="executeDelete()">Sí, eliminar registro</button>
+            <button type="button" class="secondary" onclick="closeDeleteModal()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de Edición -->
 <div id="edit-modal" class="modal-overlay">
     <div class="modal-content">
@@ -224,6 +238,7 @@
     let chartInstance = null;
     let allRecords = []; 
     let pendingRecord = null; 
+    let recordToDelete = null; // Variable para almacenar el ID del registro a borrar
 
     // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
     const HealthLogic = {
@@ -348,11 +363,21 @@
         } catch (err) { showAlert('Error: ' + err.message, 'danger'); closeEditModal(); }
     });
 
-    // ⚡ NUEVO: Función para borrar registros
-    const deleteRecord = async (id) => {
-        if (!confirm('¿Estás seguro de que deseas borrar este registro de forma permanente?')) {
-            return;
-        }
+    // ⚡ LÓGICA DEL NUEVO MODAL DE BORRADO
+    const openDeleteModal = (id) => {
+        recordToDelete = id;
+        document.getElementById('delete-modal').classList.add('active');
+    };
+
+    const closeDeleteModal = () => {
+        recordToDelete = null;
+        document.getElementById('delete-modal').classList.remove('active');
+    };
+
+    const executeDelete = async () => {
+        if (!recordToDelete) return;
+        const id = recordToDelete;
+        closeDeleteModal(); // Cerramos el modal inmediatamente
 
         // Actualización optimista (Visual instantánea)
         const recordIndex = allRecords.findIndex(r => r.id === id);
@@ -362,12 +387,12 @@
             renderChart(allRecords);
         }
 
-        // Ejecución en la base de datos
+        // Ejecución en la base de datos en segundo plano
         const { error } = await supabaseClient.from('health_records').delete().eq('id', id);
         
         if (error) {
             showAlert('Error al eliminar en la nube.', 'danger');
-            loadDataFromCloud(); // Restaurar si falla
+            loadDataFromCloud(); // Restaurar si falla la conexión
         } else {
             showAlert('Registro eliminado', 'success');
         }
@@ -398,8 +423,8 @@
                         <strong>${dateStr} - ${Utils.formatAMPM(r.time)}</strong>
                         <div class="action-buttons">
                             <button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button>
-                            <!-- ⚡ NUEVO: Botón de borrar -->
-                            <button class="btn-small danger" onclick="deleteRecord('${r.id}')">Borrar</button>
+                            <!-- ⚡ Botón Borrar conectado al Modal Propio -->
+                            <button class="btn-small danger" onclick="openDeleteModal('${r.id}')">Borrar</button>
                         </div>
                     </div>
                     <div style="margin-bottom: 12px; border-bottom: 1px dashed #eee; padding-bottom: 8px;">${bpHtml}</div>
