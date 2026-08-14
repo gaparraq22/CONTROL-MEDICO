@@ -37,25 +37,26 @@
         
         .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         
-        button { background: var(--primary); color: white; border: none; padding: 14px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        button { background: var(--primary); color: white; border: none; padding: 14px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; transition: opacity 0.2s; }
         button:active { transform: scale(0.98); }
         button.secondary { background: #f3f4f6; color: var(--text-main); border: 1px solid var(--border); }
         button.success { background: var(--success); color: white; }
         button.warning { background: var(--warning); color: white; }
         
-        .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; background: #e5e7eb; color: var(--text-main); }
+        .btn-small { padding: 6px 12px; font-size: 0.85rem; width: auto; background: #e5e7eb; color: var(--text-main); border: none; border-radius: 6px; cursor: pointer; }
+        .btn-small.danger { background: #fee2e2; color: #b91c1c; } /* Estilo suave para botón borrar */
 
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .record-item { padding: 15px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; background: #fff; }
         .record-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-        
+        .action-buttons { display: flex; gap: 6px; }
+
         .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; display: inline-block; }
         .badge.normal { background: var(--success); }
         .badge.warning { background: var(--warning); color: #fff; }
         .badge.danger { background: var(--danger); }
-        .badge.info { background: #6b7280; } /* Gris para postprandial */
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         .nav-item { background: none; color: var(--text-muted); border: none; padding: 10px; font-size: 0.85rem; flex-direction: column; width: auto; border-radius: 0; }
@@ -172,7 +173,6 @@
             </div>
             <div class="form-group"><label>Glucosa</label><input type="number" id="edit-glu"></div>
             
-            <!-- Checkbox de Ayuno (Solo visible si hay glucosa) -->
             <div class="form-group" id="edit-fasting-group" style="display:none; background:#f9fafb; padding:10px; border-radius:8px;">
                 <label style="display:flex; align-items:center; margin:0; cursor:pointer;">
                     <input type="checkbox" id="edit-is-fasting"> 
@@ -223,7 +223,7 @@
     let currentUser = null;
     let chartInstance = null;
     let allRecords = []; 
-    let pendingRecord = null; // Almacena temporalmente los datos del formulario
+    let pendingRecord = null; 
 
     // --- 2. LÓGICA MÉDICA Y ESTADÍSTICA ---
     const HealthLogic = {
@@ -233,18 +233,13 @@
             if (sys >= 140 || dia >= 90) return { label: 'Hipertensión', class: 'danger' };
             return { label: 'Elevada', class: 'warning' };
         },
-        // Lee directamente la decisión del usuario en base al parámetro isFasting
         categorizeGlucose: (glu, isFasting) => {
             if (!glu) return null;
             if (glu < 70) return { label: 'Hipoglucemia', class: 'danger' };
             if (glu <= 130) return { label: 'Objetivo (Normal)', class: 'normal' }; 
-            
-            if (isFasting) {
-                return { label: 'Alta (Ayuno)', class: 'danger' };
-            } else {
-                if (glu <= 180) return { label: 'Aceptable (Post)', class: 'warning' }; 
-                return { label: 'Hiperglucemia', class: 'danger' };
-            }
+            if (isFasting) return { label: 'Alta (Ayuno)', class: 'danger' };
+            if (glu <= 180) return { label: 'Aceptable (Post)', class: 'warning' }; 
+            return { label: 'Hiperglucemia', class: 'danger' };
         }
     };
 
@@ -294,7 +289,7 @@
     });
     document.getElementById('btn-logout').addEventListener('click', async () => { await supabaseClient.auth.signOut(); window.location.reload(); });
 
-    // --- 5. REGISTRO & LÓGICA DE AYUNO ---
+    // --- 5. REGISTRO, ACTUALIZACIÓN Y BORRADO ---
     const getFormData = (prefix = '') => {
         const sys = document.getElementById(`${prefix}sys`).value; const dia = document.getElementById(`${prefix}dia`).value; const glu = document.getElementById(`${prefix}glu`).value;
         const data = { date: document.getElementById(`${prefix}date`).value, time: document.getElementById(`${prefix}time`).value, sys_pressure: sys ? parseInt(sys) : null, dia_pressure: dia ? parseInt(dia) : null, glucose: glu ? parseInt(glu) : null, notes: document.getElementById(`${prefix}notes`).value };
@@ -307,81 +302,76 @@
         return true;
     };
 
-    // Al darle al botón Guardar
     document.getElementById('health-form').addEventListener('submit', (e) => {
         e.preventDefault(); 
         const record = getFormData(); 
         if (!validateData(record)) return;
 
         if (record.glucose) {
-            // Verificar si el usuario YA registró un ayuno en esta fecha
             const hasAyunoHoy = allRecords.some(r => r.date === record.date && r.is_fasting);
-            
-            if (hasAyunoHoy) {
-                // Si ya hay un ayuno, forzamos a que esta sea postprandial sin preguntar
-                record.is_fasting = false;
-                executeSave(record);
-            } else {
-                // Si no hay ayunos registrados hoy, le preguntamos
-                pendingRecord = record;
-                document.getElementById('fasting-modal').classList.add('active');
-            }
+            if (hasAyunoHoy) { record.is_fasting = false; executeSave(record); } 
+            else { pendingRecord = record; document.getElementById('fasting-modal').classList.add('active'); }
         } else {
-            record.is_fasting = false; // Es un registro solo de presión
-            executeSave(record);
+            record.is_fasting = false; executeSave(record);
         }
     });
 
-    // Respuestas del modal de ayuno
     const confirmFasting = (isFasting) => {
         document.getElementById('fasting-modal').classList.remove('active');
-        if (pendingRecord) {
-            pendingRecord.is_fasting = isFasting;
-            executeSave(pendingRecord);
-            pendingRecord = null;
-        }
+        if (pendingRecord) { pendingRecord.is_fasting = isFasting; executeSave(pendingRecord); pendingRecord = null; }
     };
     const closeFastingModal = () => { document.getElementById('fasting-modal').classList.remove('active'); pendingRecord = null; };
 
-    // Función definitiva para enviar a Supabase
     const executeSave = async (record) => {
-        record.patient_id = currentUser.id; 
-        toggleLoader('btn-save', 'save-loader', true);
+        record.patient_id = currentUser.id; toggleLoader('btn-save', 'save-loader', true);
         const { error } = await supabaseClient.from('health_records').insert([record]);
         toggleLoader('btn-save', 'save-loader', false);
-        
         if (error) showAlert('Error al guardar'); 
-        else { 
-            showAlert('Guardado exitoso', 'success'); 
-            document.getElementById('health-form').reset(); 
-            initTime();
-            loadDataFromCloud(); // Actualiza la lista interna invisiblemente
-        }
+        else { showAlert('Guardado exitoso', 'success'); document.getElementById('health-form').reset(); initTime(); loadDataFromCloud(); }
     };
 
-    // EDICIÓN DE REGISTRO
     document.getElementById('edit-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
             const recordId = document.getElementById('edit-id').value; const updatedData = getFormData('edit-');
             if (!validateData(updatedData)) return;
             closeEditModal();
-            
             try {
                 const recordIndex = allRecords.findIndex(r => r.id === recordId);
-                if (recordIndex !== -1) {
-                    allRecords[recordIndex] = { ...allRecords[recordIndex], ...updatedData };
-                    renderHistory(allRecords); renderChart(allRecords);
-                }
+                if (recordIndex !== -1) { allRecords[recordIndex] = { ...allRecords[recordIndex], ...updatedData }; renderHistory(allRecords); renderChart(allRecords); }
             } catch (errUI) {}
             
             const { data, error } = await supabaseClient.from('health_records').update(updatedData).eq('id', recordId).select();
-            
             if (error) { showAlert('Error de red al actualizar', 'danger'); loadDataFromCloud(); } 
             else if (!data || data.length === 0) { showAlert('Permiso denegado.', 'warning'); loadDataFromCloud(); } 
             else showAlert('✔️ Actualizado', 'success');
         } catch (err) { showAlert('Error: ' + err.message, 'danger'); closeEditModal(); }
     });
+
+    // ⚡ NUEVO: Función para borrar registros
+    const deleteRecord = async (id) => {
+        if (!confirm('¿Estás seguro de que deseas borrar este registro de forma permanente?')) {
+            return;
+        }
+
+        // Actualización optimista (Visual instantánea)
+        const recordIndex = allRecords.findIndex(r => r.id === id);
+        if (recordIndex !== -1) {
+            allRecords.splice(recordIndex, 1);
+            renderHistory(allRecords);
+            renderChart(allRecords);
+        }
+
+        // Ejecución en la base de datos
+        const { error } = await supabaseClient.from('health_records').delete().eq('id', id);
+        
+        if (error) {
+            showAlert('Error al eliminar en la nube.', 'danger');
+            loadDataFromCloud(); // Restaurar si falla
+        } else {
+            showAlert('Registro eliminado', 'success');
+        }
+    };
 
     // --- 6. HISTORIAL Y RENDER ---
     const loadDataFromCloud = async () => {
@@ -395,14 +385,10 @@
         
         records.forEach(r => {
             const dateStr = new Date(`${r.date}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-            
             const bpCat = HealthLogic.categorizeBP(r.sys_pressure, r.dia_pressure);
-            // Lee el booleano 'is_fasting' que el usuario guardó
             const gluCat = HealthLogic.categorizeGlucose(r.glucose, r.is_fasting);
             
             let bpHtml = r.sys_pressure ? `<span>Presión: <strong>${r.sys_pressure}/${r.dia_pressure}</strong> mmHg</span> <span class="badge ${bpCat.class}" style="float:right">${bpCat.label}</span>` : `<span style="color:var(--text-muted)"><em>Presión N/A</em></span>`;
-            
-            // Si tiene glucosa, le agregamos visualmente si fue en ayuno o no
             let gluStatus = r.is_fasting ? " <small style='color:var(--primary);'>(Ayuno)</small>" : " <small style='color:var(--text-muted);'>(Post)</small>";
             let gluHtml = r.glucose ? `<span>Glucosa: <strong>${r.glucose}</strong> mg/dL${gluStatus}</span> <span class="badge ${gluCat.class}" style="float:right">${gluCat.label}</span>` : `<span style="color:var(--text-muted)"><em>Glucosa N/A</em></span>`;
                 
@@ -410,7 +396,11 @@
                 <div class="record-item">
                     <div class="record-header">
                         <strong>${dateStr} - ${Utils.formatAMPM(r.time)}</strong>
-                        <button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button>
+                        <div class="action-buttons">
+                            <button class="btn-small" onclick="openEditModal('${r.id}')">Editar</button>
+                            <!-- ⚡ NUEVO: Botón de borrar -->
+                            <button class="btn-small danger" onclick="deleteRecord('${r.id}')">Borrar</button>
+                        </div>
                     </div>
                     <div style="margin-bottom: 12px; border-bottom: 1px dashed #eee; padding-bottom: 8px;">${bpHtml}</div>
                     <div style="margin-bottom: 4px;">${gluHtml}</div>
@@ -446,14 +436,10 @@
         document.getElementById('edit-sys').value = r.sys_pressure || ''; document.getElementById('edit-dia').value = r.dia_pressure || '';
         document.getElementById('edit-glu').value = r.glucose || ''; document.getElementById('edit-notes').value = r.notes || '';
         
-        // Control inteligente del Checkbox de Ayuno en edición
         const editFastingGroup = document.getElementById('edit-fasting-group');
         if (r.glucose) {
             editFastingGroup.style.display = 'block';
             document.getElementById('edit-is-fasting').checked = !!r.is_fasting;
-            
-            // Si ya existe un registro de ayuno ESTE MISMO DÍA que NO sea el que estamos editando,
-            // deshabilitamos el checkbox para proteger la regla de "solo un ayuno por día"
             const hasAyunoAnother = allRecords.some(x => x.date === r.date && x.is_fasting && x.id !== r.id);
             document.getElementById('edit-is-fasting').disabled = hasAyunoAnother;
         } else {
